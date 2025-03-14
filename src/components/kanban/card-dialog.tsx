@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, Flag, MessageSquare, History, Check, Paperclip } from 'lucide-react';
 import { CardType } from '@/lib/types';
 import CommentSection from '@/components/collaboration/comment-section';
 import CardHistory from '@/components/collaboration/card-history';
 import { useCollaborationStore } from '@/store/use-collaboration-store';
+import { useForm } from '@/hooks/use-form';
+import { useErrorHandler } from '@/providers/app-provider';
+import { useSuccessNotification } from '@/providers/notification-provider';
 
 interface CardDialogProps {
   isOpen: boolean;
@@ -24,135 +27,186 @@ const CardDialog = ({
   currentUser,
   departmentId
 }: CardDialogProps) => {
-  const [cardTitle, setCardTitle] = useState(card?.title || '');
-  const [description, setDescription] = useState(card?.description || '');
-  const [assignee, setAssignee] = useState(card?.assignee || '');
-  const [dueDate, setDueDate] = useState(card?.dueDate || '');
-  const [priority, setPriority] = useState<'low' | 'medium' | 'high' | ''>(card?.priority || '');
-  
   // Obsługa zakładek dla różnych sekcji dialogu
   const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details');
   
-  // Zapisz referencję do store'a
+  // Hooks dla powiadomień i obsługi błędów
+  const { handleError } = useErrorHandler();
+  const showSuccess = useSuccessNotification();
+  
+  // Inicjalizacja formularza z walidacją
+  const initialConfig = {
+    title: {
+      value: card?.title || '',
+      required: true,
+      requiredMessage: 'Tytuł jest wymagany',
+    },
+    description: {
+      value: card?.description || '',
+      required: false,
+    },
+    assignee: {
+      value: card?.assignee || '',
+      required: false,
+    },
+    dueDate: {
+      value: card?.dueDate || '',
+      required: false,
+      validate: [
+        {
+          validate: (value) => !value || new Date(value) >= new Date(new Date().setHours(0, 0, 0, 0)),
+          message: 'Data nie może być w przeszłości',
+        },
+      ],
+    },
+    priority: {
+      value: card?.priority || '',
+      required: false,
+    },
+  };
+  
+  // Store dla współpracy
   const collaborationStore = useCollaborationStore();
   
+  // Hook formularza
+  const {
+    values,
+    errors,
+    touched,
+    isSubmitting,
+    submitError,
+    handleInputChange,
+    handleSubmit,
+    resetForm,
+    hasError,
+    getError,
+    setFieldValue,
+  } = useForm(initialConfig, async (formValues) => {
+    try {
+      // Przygotowanie danych karty
+      const updatedCard: Omit<CardType, 'id'> = {
+        title: formValues.title,
+        description: formValues.description || undefined,
+        assignee: formValues.assignee || undefined,
+        dueDate: formValues.dueDate || undefined,
+        priority: formValues.priority || undefined,
+      };
+      
+      // Jeśli karta istnieje, dodaj wpisy do historii zmian
+      if (card) {
+        // Sprawdzamy zmiany w tytule
+        if (card.title !== updatedCard.title) {
+          collaborationStore.addHistoryEntry(
+            card.id,
+            'updated',
+            currentUser,
+            departmentId,
+            {
+              field: 'title',
+              oldValue: card.title,
+              newValue: updatedCard.title
+            }
+          );
+        }
+        
+        // Sprawdzamy zmiany w opisie
+        if (card.description !== updatedCard.description) {
+          collaborationStore.addHistoryEntry(
+            card.id,
+            'updated',
+            currentUser,
+            departmentId,
+            {
+              field: 'description',
+              oldValue: card.description,
+              newValue: updatedCard.description
+            }
+          );
+        }
+        
+        // Sprawdzamy zmiany w przypisanej osobie
+        if (card.assignee !== updatedCard.assignee) {
+          collaborationStore.addHistoryEntry(
+            card.id,
+            'assigned',
+            currentUser,
+            departmentId,
+            {
+              oldValue: card.assignee,
+              newValue: updatedCard.assignee
+            }
+          );
+        }
+        
+        // Sprawdzamy zmiany w priorytecie
+        if (card.priority !== updatedCard.priority) {
+          collaborationStore.addHistoryEntry(
+            card.id,
+            'changed_priority',
+            currentUser,
+            departmentId,
+            {
+              oldValue: card.priority,
+              newValue: updatedCard.priority
+            }
+          );
+        }
+        
+        // Sprawdzamy zmiany w terminie
+        if (card.dueDate !== updatedCard.dueDate) {
+          collaborationStore.addHistoryEntry(
+            card.id,
+            'updated',
+            currentUser,
+            departmentId,
+            {
+              field: 'dueDate',
+              oldValue: card.dueDate,
+              newValue: updatedCard.dueDate
+            }
+          );
+        }
+      }
+      
+      // Zapisz kartę
+      onSave(updatedCard);
+      
+      // Wyświetl powiadomienie o sukcesie
+      showSuccess(card ? 'Karta została zaktualizowana' : 'Nowa karta została utworzona');
+      
+      // Zamknij dialog
+      onClose();
+    } catch (error) {
+      handleError(error);
+    }
+  });
+  
+  // Resetuj formularz przy otwarciu/zamknięciu dialogu
   useEffect(() => {
-    if (isOpen && card) {
-      setCardTitle(card.title);
-      setDescription(card.description || '');
-      setAssignee(card.assignee || '');
-      setDueDate(card.dueDate || '');
-      setPriority(card.priority || '');
-      setActiveTab('details');
-    } else if (isOpen) {
-      // Wyczyść formularz przy tworzeniu nowej karty
-      setCardTitle('');
-      setDescription('');
-      setAssignee('');
-      setDueDate('');
-      setPriority('');
+    if (isOpen) {
+      if (card) {
+        setFieldValue('title', card.title);
+        setFieldValue('description', card.description || '');
+        setFieldValue('assignee', card.assignee || '');
+        setFieldValue('dueDate', card.dueDate || '');
+        setFieldValue('priority', card.priority || '');
+      } else {
+        resetForm();
+      }
       setActiveTab('details');
     }
-  }, [isOpen, card]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Przygotuj zaktualizowaną kartę
-    const updatedCard: Omit<CardType, 'id'> = {
-      title: cardTitle,
-      description: description || undefined,
-      assignee: assignee || undefined,
-      dueDate: dueDate || undefined,
-      priority: priority || undefined,
-    };
-    
-    // Jeśli karta istnieje, dodaj wpis do historii zmian
-    if (card) {
-      // Utwórz historię zmian za pomocą własnego kodu
-      if (card.title !== cardTitle) {
-        collaborationStore.addHistoryEntry(
-          card.id,
-          'updated',
-          currentUser,
-          departmentId,
-          {
-            field: 'title',
-            oldValue: card.title,
-            newValue: cardTitle
-          }
-        );
-      }
-      
-      if (card.description !== description) {
-        collaborationStore.addHistoryEntry(
-          card.id,
-          'updated',
-          currentUser,
-          departmentId,
-          {
-            field: 'description',
-            oldValue: card.description,
-            newValue: description
-          }
-        );
-      }
-      
-      if (card.assignee !== assignee) {
-        collaborationStore.addHistoryEntry(
-          card.id,
-          'assigned',
-          currentUser,
-          departmentId,
-          {
-            oldValue: card.assignee,
-            newValue: assignee
-          }
-        );
-      }
-      
-      if (card.priority !== priority) {
-        collaborationStore.addHistoryEntry(
-          card.id,
-          'changed_priority',
-          currentUser,
-          departmentId,
-          {
-            oldValue: card.priority,
-            newValue: priority
-          }
-        );
-      }
-      
-      if (card.dueDate !== dueDate) {
-        collaborationStore.addHistoryEntry(
-          card.id,
-          'updated',
-          currentUser,
-          departmentId,
-          {
-            field: 'dueDate',
-            oldValue: card.dueDate,
-            newValue: dueDate
-          }
-        );
-      }
-    }
-    
-    onSave(updatedCard);
-    onClose();
-  };
-
+  }, [isOpen, card, setFieldValue, resetForm]);
+  
   if (!isOpen) return null;
-
+  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col shadow-xl animate-scaleIn">
         <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
           <h2 className="text-xl font-semibold">{title}</h2>
           <button 
             onClick={onClose}
-            className="rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -161,10 +215,10 @@ const CardDialog = ({
         {/* Zakładki */}
         <div className="flex border-b dark:border-gray-700">
           <button
-            className={`px-4 py-2 flex items-center ${
+            className={`px-4 py-2 flex items-center transition-colors ${
               activeTab === 'details' 
                 ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' 
-                : 'text-gray-600 dark:text-gray-400'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
             onClick={() => setActiveTab('details')}
           >
@@ -172,64 +226,91 @@ const CardDialog = ({
             Szczegóły
           </button>
           <button
-            className={`px-4 py-2 flex items-center ${
+            className={`px-4 py-2 flex items-center transition-colors ${
               activeTab === 'comments' 
                 ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' 
-                : 'text-gray-600 dark:text-gray-400'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
             onClick={() => setActiveTab('comments')}
             disabled={!card}
           >
             <MessageSquare className="h-4 w-4 mr-2" />
             Komentarze
+            {card && <span className="ml-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-full px-2">
+              {collaborationStore.getCommentsForCard(card.id).length}
+            </span>}
           </button>
           <button
-            className={`px-4 py-2 flex items-center ${
+            className={`px-4 py-2 flex items-center transition-colors ${
               activeTab === 'history' 
                 ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' 
-                : 'text-gray-600 dark:text-gray-400'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
             onClick={() => setActiveTab('history')}
             disabled={!card}
           >
             <History className="h-4 w-4 mr-2" />
             Historia
+            {card && <span className="ml-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-full px-2">
+              {collaborationStore.getHistoryForCard(card.id).length}
+            </span>}
           </button>
         </div>
         
         <div className="overflow-y-auto p-4 flex-grow">
           {activeTab === 'details' && (
             <form onSubmit={handleSubmit} id="card-form" className="space-y-4">
+              {submitError && (
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 p-3 rounded-lg mb-4">
+                  {submitError}
+                </div>
+              )}
+              
               <div>
-                <label className="block text-sm font-medium mb-1">Tytuł</label>
+                <label htmlFor="title" className="block text-sm font-medium mb-1">
+                  Tytuł {hasError('title') && <span className="text-red-500">*</span>}
+                </label>
                 <input
                   type="text"
-                  value={cardTitle}
-                  onChange={(e) => setCardTitle(e.target.value)}
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
+                  id="title"
+                  name="title"
+                  value={values.title}
+                  onChange={handleInputChange}
+                  className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 transition-colors
+                    ${hasError('title') ? 'border-red-500 dark:border-red-500' : ''}`}
                 />
+                {hasError('title') && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">{getError('title')}</p>
+                )}
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1">Opis</label>
+                <label htmlFor="description" className="block text-sm font-medium mb-1">
+                  Opis
+                </label>
                 <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-2 border rounded-md h-24 dark:bg-gray-700 dark:border-gray-600"
+                  id="description"
+                  name="description"
+                  value={values.description}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded-md h-24 dark:bg-gray-700 dark:border-gray-600 transition-colors"
                   placeholder="Opis (opcjonalnie)"
                 />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Przypisana osoba</label>
+                  <label htmlFor="assignee" className="block text-sm font-medium mb-1">
+                    Przypisana osoba
+                  </label>
                   <div className="relative">
                     <input
                       type="text"
-                      value={assignee}
-                      onChange={(e) => setAssignee(e.target.value)}
-                      className="w-full p-2 pl-8 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      id="assignee"
+                      name="assignee"
+                      value={values.assignee}
+                      onChange={handleInputChange}
+                      className="w-full p-2 pl-8 border rounded-md dark:bg-gray-700 dark:border-gray-600 transition-colors"
                       placeholder="Przypisz osobę (opcjonalnie)"
                     />
                     <User className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
@@ -237,16 +318,24 @@ const CardDialog = ({
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Termin</label>
+                  <label htmlFor="dueDate" className="block text-sm font-medium mb-1">
+                    Termin {hasError('dueDate') && <span className="text-red-500">*</span>}
+                  </label>
                   <div className="relative">
                     <input
                       type="date"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      className="w-full p-2 pl-8 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      id="dueDate"
+                      name="dueDate"
+                      value={values.dueDate}
+                      onChange={handleInputChange}
+                      className={`w-full p-2 pl-8 border rounded-md dark:bg-gray-700 dark:border-gray-600 transition-colors
+                        ${hasError('dueDate') ? 'border-red-500 dark:border-red-500' : ''}`}
                     />
                     <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
                   </div>
+                  {hasError('dueDate') && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">{getError('dueDate')}</p>
+                  )}
                 </div>
               </div>
               
@@ -258,8 +347,8 @@ const CardDialog = ({
                       type="radio"
                       name="priority"
                       value="low"
-                      checked={priority === 'low'}
-                      onChange={() => setPriority('low')}
+                      checked={values.priority === 'low'}
+                      onChange={handleInputChange}
                       className="mr-2"
                     />
                     <span className="flex items-center">
@@ -272,8 +361,8 @@ const CardDialog = ({
                       type="radio"
                       name="priority"
                       value="medium"
-                      checked={priority === 'medium'}
-                      onChange={() => setPriority('medium')}
+                      checked={values.priority === 'medium'}
+                      onChange={handleInputChange}
                       className="mr-2"
                     />
                     <span className="flex items-center">
@@ -286,8 +375,8 @@ const CardDialog = ({
                       type="radio"
                       name="priority"
                       value="high"
-                      checked={priority === 'high'}
-                      onChange={() => setPriority('high')}
+                      checked={values.priority === 'high'}
+                      onChange={handleInputChange}
                       className="mr-2"
                     />
                     <span className="flex items-center">
@@ -320,7 +409,7 @@ const CardDialog = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700"
+            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
           >
             Anuluj
           </button>
@@ -329,9 +418,17 @@ const CardDialog = ({
             <button
               type="submit"
               form="card-form"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
             >
-              Zapisz
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  Zapisywanie...
+                </>
+              ) : (
+                <>Zapisz</>
+              )}
             </button>
           )}
         </div>
