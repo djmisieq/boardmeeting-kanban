@@ -1,5 +1,9 @@
+'use client';
+
 import Navbar from '@/components/layout/navbar';
 import KanbanBoard, { ColumnType } from '@/components/kanban/kanban-board';
+import { useState } from 'react';
+import { Search, Filter } from 'lucide-react';
 
 // Mock data for initial tasks
 const initialColumns: ColumnType[] = [
@@ -88,6 +92,9 @@ const initialColumns: ColumnType[] = [
 ];
 
 export default function TasksBoard() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterAssignee, setFilterAssignee] = useState('');
+  
   return (
     <div>
       <Navbar />
@@ -102,25 +109,18 @@ export default function TasksBoard() {
                 type="text"
                 placeholder="Search tasks..."
                 className="pl-9 pr-4 py-2 border rounded-lg"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <svg
-                className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             </div>
             
             <div>
-              <select className="px-4 py-2 border rounded-lg">
+              <select 
+                className="px-4 py-2 border rounded-lg"
+                value={filterAssignee}
+                onChange={(e) => setFilterAssignee(e.target.value)}
+              >
                 <option value="">Filter by assignee</option>
                 <option value="Anna K.">Anna K.</option>
                 <option value="Mike S.">Mike S.</option>
@@ -133,7 +133,29 @@ export default function TasksBoard() {
           </div>
         </div>
         
-        <KanbanBoard title="" initialColumns={initialColumns} />
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+          <h2 className="text-xl font-medium mb-4">Task Statistics</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div className="text-3xl font-bold">8</div>
+              <div className="text-sm text-gray-500">Total Tasks</div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-blue-500">3</div>
+              <div className="text-sm text-gray-500">In Progress</div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-green-500">3</div>
+              <div className="text-sm text-gray-500">Completed</div>
+            </div>
+          </div>
+        </div>
+        
+        <KanbanBoard 
+          boardId="tasks-board" 
+          title="" 
+          initialColumns={initialColumns} 
+        />
       </div>
     </div>
   );
