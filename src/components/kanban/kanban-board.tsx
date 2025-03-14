@@ -94,6 +94,8 @@ const KanbanBoard = ({ boardId, title, initialColumns }: KanbanBoardProps) => {
                   assignee={card.assignee}
                   dueDate={card.dueDate}
                   priority={card.priority}
+                  boardId={boardId}
+                  columnId={column.id}
                 />
               ))}
             </KanbanColumn>
