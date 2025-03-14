@@ -16,9 +16,9 @@ export function StoreProvider({ children }: StoreProviderProps) {
   
   if (!initialized.current) {
     // Initialize the store on the client side
-    useKanbanStore.getState().initializeBoard('tasks-board', []);
-    useKanbanStore.getState().initializeBoard('problems-board', []);
-    useKanbanStore.getState().initializeBoard('ideas-board', []);
+    useKanbanStore.getState().initializeBoard('tasks-board', 'tasks', 'default', []);
+    useKanbanStore.getState().initializeBoard('problems-board', 'problems', 'default', []);
+    useKanbanStore.getState().initializeBoard('ideas-board', 'ideas', 'default', []);
     initialized.current = true;
   }
   
