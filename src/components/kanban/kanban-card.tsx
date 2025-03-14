@@ -16,6 +16,7 @@ interface KanbanCardProps {
   priority?: 'low' | 'medium' | 'high';
   boardId?: string;
   columnId?: string;
+  categoryIcon?: React.ReactNode; // Dodana ikona kategorii
   onUpdate?: (updates: Partial<CardType>) => void;
   onDelete?: () => void;
   isDragging?: boolean;
@@ -30,6 +31,7 @@ const KanbanCard = ({
   priority,
   boardId,
   columnId,
+  categoryIcon, // Nowy prop
   onUpdate,
   onDelete,
   isDragging = false
@@ -77,7 +79,7 @@ const KanbanCard = ({
   };
 
   const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
+    if (window.confirm('Czy na pewno chcesz usunąć tę kartę? Tej operacji nie można cofnąć.')) {
       onDelete?.();
     }
     setShowMenu(false);
@@ -137,6 +139,13 @@ const KanbanCard = ({
         whileHover={{ scale: finalIsDragging ? 1.0 : 1.02 }}
         className={`bg-white dark:bg-gray-700 p-3 rounded-md shadow-sm ${finalIsDragging ? 'cursor-grabbing opacity-75 shadow-md' : 'cursor-grab'} relative`}
       >
+        {/* Dodanie paska kategorii na górze karty, jeśli ikona jest dostępna */}
+        {categoryIcon && (
+          <div className="absolute -top-1 -left-1 rounded-tl rounded-br bg-white dark:bg-gray-600 p-1 shadow-sm">
+            {categoryIcon}
+          </div>
+        )}
+        
         <div className="flex justify-between items-start">
           <h4 className="font-medium mb-2 pr-6">{title}</h4>
           <button 
@@ -153,7 +162,7 @@ const KanbanCard = ({
                 className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <Edit className="h-4 w-4 mr-2" />
-                Edit
+                Edytuj
               </button>
               
               <button 
@@ -161,7 +170,7 @@ const KanbanCard = ({
                 className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <Share2 className="h-4 w-4 mr-2" />
-                Share
+                Udostępnij
               </button>
               
               <button 
@@ -169,7 +178,7 @@ const KanbanCard = ({
                 className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <Trash className="h-4 w-4 mr-2" />
-                Delete
+                Usuń
               </button>
             </div>
           )}
@@ -193,14 +202,15 @@ const KanbanCard = ({
             <div className={`flex items-center text-xs ${isOverdue ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
               <Calendar className="h-3 w-3 mr-1" />
               {dueDate}
-              {isOverdue && ' (Overdue)'}
+              {isOverdue && ' (Zaległe)'}
             </div>
           )}
           
           {priority && (
             <div className={`flex items-center text-xs px-2 py-0.5 rounded ${priorityColors[priority]}`}>
               <Flag className="h-3 w-3 mr-1" />
-              {priority.charAt(0).toUpperCase() + priority.slice(1)}
+              {priority === 'low' ? 'Niski' : 
+               priority === 'medium' ? 'Średni' : 'Wysoki'}
             </div>
           )}
         </div>
@@ -212,7 +222,7 @@ const KanbanCard = ({
         onClose={() => setShowEditDialog(false)}
         onSave={handleSaveCard}
         card={{ id, title, description, assignee, dueDate, priority }}
-        title="Edit Card"
+        title="Edytuj kartę"
         currentUser={assignee || "Admin"}
         departmentId={selectedDepartmentId || "default"}
       />
@@ -221,9 +231,9 @@ const KanbanCard = ({
       {showShareDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
-            <h3 className="text-xl font-semibold mb-4">Share with Department</h3>
+            <h3 className="text-xl font-semibold mb-4">Udostępnij działowi</h3>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Select a department to share this card with:
+              Wybierz dział, któremu chcesz udostępnić tę kartę:
             </p>
             
             <div className="max-h-60 overflow-y-auto space-y-2 mb-6">
@@ -239,7 +249,7 @@ const KanbanCard = ({
               ))}
               
               {departments.filter(dept => dept.id !== selectedDepartmentId).length === 0 && (
-                <p className="text-gray-500 italic">No other departments available.</p>
+                <p className="text-gray-500 italic">Brak innych dostępnych działów.</p>
               )}
             </div>
             
@@ -248,7 +258,7 @@ const KanbanCard = ({
                 onClick={() => setShowShareDialog(false)}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
               >
-                Cancel
+                Anuluj
               </button>
             </div>
           </div>
