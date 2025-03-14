@@ -9,8 +9,7 @@ import {
   Lightbulb, 
   FileText, 
   Target,
-  BarChart,
-  Users
+  Building2
 } from 'lucide-react';
 import DepartmentSelector from './department-selector';
 import { useDepartmentsStore } from '@/store/use-departments-store';
@@ -41,9 +40,14 @@ const Navbar = () => {
   };
 
   const navItems = [
+    {
+      name: 'Organization',
+      href: '/organization',
+      icon: <Building2 className="h-5 w-5" />
+    },
     { 
       name: 'Dashboard', 
-      href: selectedDepartmentId ? `/dashboard?departmentId=${selectedDepartmentId}` : '/dashboard', 
+      href: '/dashboard', 
       icon: <LayoutDashboard className="h-5 w-5" /> 
     },
     { 
@@ -71,16 +75,6 @@ const Navbar = () => {
       href: '/goals', 
       icon: <Target className="h-5 w-5" /> 
     },
-    { 
-      name: 'Reports', 
-      href: '/reports', 
-      icon: <BarChart className="h-5 w-5" /> 
-    },
-    { 
-      name: 'Departments', 
-      href: '/departments', 
-      icon: <Users className="h-5 w-5" /> 
-    },
   ];
 
   return (
@@ -98,7 +92,7 @@ const Navbar = () => {
             <DepartmentSelector />
           </div>
 
-          <div className="hidden md:flex md:items-center overflow-x-auto">
+          <div className="hidden md:flex md:items-center">
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               
@@ -106,7 +100,7 @@ const Navbar = () => {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center px-3 py-2 mx-1 text-sm rounded-md whitespace-nowrap
+                  className={`flex items-center px-3 py-2 mx-1 text-sm rounded-md 
                     ${isActive 
                       ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100' 
                       : 'hover:bg-gray-100 dark:hover:bg-gray-800'
