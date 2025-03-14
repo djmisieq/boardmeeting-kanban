@@ -1,3 +1,5 @@
+'use client';
+
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useKanbanStore } from '@/store/use-kanban-store';
 import { useDepartmentsStore } from '@/store/use-departments-store';
