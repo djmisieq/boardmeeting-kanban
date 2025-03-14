@@ -28,7 +28,19 @@ Front-end application for managing team meetings using visual Kanban boards, fol
 - Create meeting summaries
 - View history and search notes and decisions
 
-### 6. Cascading Goals View (Optional)
+### 6. Cross-Department Collaboration
+- View and filter tasks, problems, and ideas across all departments
+- Create and manage cross-department projects
+- Assign tasks from different departments to projects
+- Track project progress with milestones
+
+### 7. Enhanced Collaboration Tools
+- Comment system with threaded discussions
+- @mentions to notify team members
+- Change history tracking for all cards
+- Real-time collaboration indicators
+
+### 8. Cascading Goals View (Optional)
 - Define team goals that can be aggregated at managerial and strategic levels
 - Transparent view of team goals for high-level managers
 
@@ -50,9 +62,19 @@ Front-end application for managing team meetings using visual Kanban boards, fol
 3. Run the development server with `npm run dev`
 4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
+## Development Status
+
+The application is currently in MVP (Minimum Viable Product) phase with the following components implemented:
+- Basic Kanban boards functionality
+- Cross-department project management
+- Enhanced collaboration tools with comments and history tracking
+- Department and user management
+
 ## Future Development Plans
 
 - User authentication (OAuth)
 - Integration with Microsoft 365 tools (Outlook, Teams, SharePoint)
-- Analytical integration (Power BI, Excel)
+- Notification system for mentions, due dates, and status changes
+- Advanced reporting and analytics
+- Integration with external analytics tools (Power BI, Excel)
 - Process automation (Power Automate)
