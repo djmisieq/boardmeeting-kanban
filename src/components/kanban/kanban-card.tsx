@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Calendar, User, Flag, MoreVertical, Edit, Trash, Share2, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -192,6 +192,8 @@ const KanbanCard = ({
         onSave={handleSaveCard}
         card={{ id, title, description, assignee, dueDate, priority }}
         title="Edit Card"
+        currentUser={assignee || "Admin"}
+        departmentId={selectedDepartmentId || "default"}
       />
       
       {/* Share Card Dialog */}
