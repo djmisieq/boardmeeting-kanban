@@ -1,5 +1,9 @@
+'use client';
+
 import Navbar from '@/components/layout/navbar';
 import KanbanBoard, { ColumnType } from '@/components/kanban/kanban-board';
+import { useState } from 'react';
+import { Search, Filter, AlertTriangle, PlusCircle } from 'lucide-react';
 
 // Mock data for problems
 const initialColumns: ColumnType[] = [
@@ -86,6 +90,10 @@ const initialColumns: ColumnType[] = [
 ];
 
 export default function ProblemsBoard() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterPriority, setFilterPriority] = useState('');
+  const [showReportModal, setShowReportModal] = useState(false);
+  
   return (
     <div>
       <Navbar />
@@ -100,25 +108,18 @@ export default function ProblemsBoard() {
                 type="text"
                 placeholder="Search problems..."
                 className="pl-9 pr-4 py-2 border rounded-lg"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <svg
-                className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             </div>
             
             <div>
-              <select className="px-4 py-2 border rounded-lg">
+              <select 
+                className="px-4 py-2 border rounded-lg"
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value)}
+              >
                 <option value="">Filter by priority</option>
                 <option value="high">High Priority</option>
                 <option value="medium">Medium Priority</option>
@@ -126,7 +127,11 @@ export default function ProblemsBoard() {
               </select>
             </div>
             
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button 
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              onClick={() => setShowReportModal(true)}
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
               Report Problem
             </button>
           </div>
@@ -162,7 +167,45 @@ export default function ProblemsBoard() {
           </div>
         </div>
         
-        <KanbanBoard title="" initialColumns={initialColumns} />
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+          <h2 className="text-xl font-medium mb-4">Problems Overview</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
+              <AlertTriangle className="h-10 w-10 text-red-500 mr-3" />
+              <div>
+                <div className="text-xl font-bold">2</div>
+                <div className="text-sm text-gray-500">New Problems</div>
+              </div>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center">
+              <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700 mr-3">2</div>
+              <div>
+                <div className="text-xl font-bold">In Analysis</div>
+                <div className="text-sm text-gray-500">Under Investigation</div>
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center">
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 mr-3">1</div>
+              <div>
+                <div className="text-xl font-bold">In Progress</div>
+                <div className="text-sm text-gray-500">Being Resolved</div>
+              </div>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center">
+              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 mr-3">2</div>
+              <div>
+                <div className="text-xl font-bold">Resolved</div>
+                <div className="text-sm text-gray-500">Problems Fixed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <KanbanBoard 
+          boardId="problems-board" 
+          title="" 
+          initialColumns={initialColumns} 
+        />
       </div>
     </div>
   );
