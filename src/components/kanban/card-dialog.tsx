@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, User, Flag, MessageSquare, History, Check, Paperclip } from 'lucide-react';
 import { CardType } from '@/lib/types';
 import CommentSection from '@/components/collaboration/comment-section';
@@ -27,14 +27,17 @@ const CardDialog = ({
   currentUser,
   departmentId
 }: CardDialogProps) => {
-  // Obsługa zakładek dla różnych sekcji dialogu
+  // Tab management
   const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details');
   
-  // Hooks dla powiadomień i obsługi błędów
+  // Error and notification handling
   const { handleError } = useErrorHandler();
   const showSuccess = useSuccessNotification();
   
-  // Inicjalizacja formularza z walidacją
+  // Dialog ref for click outside detection
+  const dialogRef = useRef<HTMLDivElement>(null);
+  
+  // Form initialization with validation
   const initialConfig = {
     title: {
       value: card?.title || '',
@@ -65,10 +68,10 @@ const CardDialog = ({
     },
   };
   
-  // Store dla współpracy
+  // Collaboration store
   const collaborationStore = useCollaborationStore();
   
-  // Hook formularza
+  // Form hook
   const {
     values,
     errors,
@@ -83,7 +86,7 @@ const CardDialog = ({
     setFieldValue,
   } = useForm(initialConfig, async (formValues) => {
     try {
-      // Przygotowanie danych karty
+      // Prepare card data
       const updatedCard: Omit<CardType, 'id'> = {
         title: formValues.title,
         description: formValues.description || undefined,
@@ -92,9 +95,9 @@ const CardDialog = ({
         priority: formValues.priority || undefined,
       };
       
-      // Jeśli karta istnieje, dodaj wpisy do historii zmian
+      // If card exists, add history entries for changes
       if (card) {
-        // Sprawdzamy zmiany w tytule
+        // Check for title changes
         if (card.title !== updatedCard.title) {
           collaborationStore.addHistoryEntry(
             card.id,
@@ -109,7 +112,7 @@ const CardDialog = ({
           );
         }
         
-        // Sprawdzamy zmiany w opisie
+        // Check for description changes
         if (card.description !== updatedCard.description) {
           collaborationStore.addHistoryEntry(
             card.id,
@@ -124,7 +127,7 @@ const CardDialog = ({
           );
         }
         
-        // Sprawdzamy zmiany w przypisanej osobie
+        // Check for assignee changes
         if (card.assignee !== updatedCard.assignee) {
           collaborationStore.addHistoryEntry(
             card.id,
@@ -138,7 +141,7 @@ const CardDialog = ({
           );
         }
         
-        // Sprawdzamy zmiany w priorytecie
+        // Check for priority changes
         if (card.priority !== updatedCard.priority) {
           collaborationStore.addHistoryEntry(
             card.id,
@@ -152,7 +155,7 @@ const CardDialog = ({
           );
         }
         
-        // Sprawdzamy zmiany w terminie
+        // Check for due date changes
         if (card.dueDate !== updatedCard.dueDate) {
           collaborationStore.addHistoryEntry(
             card.id,
@@ -168,20 +171,37 @@ const CardDialog = ({
         }
       }
       
-      // Zapisz kartę
+      // Save the card
       onSave(updatedCard);
       
-      // Wyświetl powiadomienie o sukcesie
+      // Show success notification
       showSuccess(card ? 'Karta została zaktualizowana' : 'Nowa karta została utworzona');
       
-      // Zamknij dialog
+      // Close dialog
       onClose();
     } catch (error) {
       handleError(error);
     }
   });
   
-  // Resetuj formularz przy otwarciu/zamknięciu dialogu
+  // Click outside handler for modal
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+  
+  // Reset form when dialog opens/closes
   useEffect(() => {
     if (isOpen) {
       if (card) {
@@ -197,11 +217,40 @@ const CardDialog = ({
     }
   }, [isOpen, card, setFieldValue, resetForm]);
   
+  // Keyboard controls for modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+      
+      // Save on Ctrl/Cmd + Enter when in details tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && activeTab === 'details') {
+        const form = document.getElementById('card-form');
+        if (form) {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+      }
+    };
+    
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose, activeTab]);
+  
   if (!isOpen) return null;
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col shadow-xl animate-scaleIn">
+      <div 
+        ref={dialogRef}
+        className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col shadow-xl animate-scaleIn"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
           <h2 className="text-xl font-semibold">{title}</h2>
           <button 
@@ -212,7 +261,7 @@ const CardDialog = ({
           </button>
         </div>
         
-        {/* Zakładki */}
+        {/* Tabs */}
         <div className="flex border-b dark:border-gray-700">
           <button
             className={`px-4 py-2 flex items-center transition-colors ${
@@ -278,6 +327,7 @@ const CardDialog = ({
                   onChange={handleInputChange}
                   className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 transition-colors
                     ${hasError('title') ? 'border-red-500 dark:border-red-500' : ''}`}
+                  autoFocus
                 />
                 {hasError('title') && (
                   <p className="text-sm text-red-600 dark:text-red-400 mt-1">{getError('title')}</p>
@@ -341,7 +391,7 @@ const CardDialog = ({
               
               <div>
                 <label className="block text-sm font-medium mb-1">Priorytet</label>
-                <div className="flex space-x-4">
+                <div className="flex flex-wrap space-x-4">
                   <label className="flex items-center">
                     <input
                       type="radio"
@@ -389,7 +439,7 @@ const CardDialog = ({
             </form>
           )}
           
-          {/* Sekcja komentarzy */}
+          {/* Comments section */}
           {activeTab === 'comments' && card && (
             <CommentSection
               cardId={card.id}
@@ -398,13 +448,13 @@ const CardDialog = ({
             />
           )}
           
-          {/* Historia zmian */}
+          {/* History */}
           {activeTab === 'history' && card && (
             <CardHistory cardId={card.id} />
           )}
         </div>
         
-        {/* Przyciski akcji na dole */}
+        {/* Action buttons */}
         <div className="flex justify-end space-x-3 p-4 border-t dark:border-gray-700">
           <button
             type="button"
