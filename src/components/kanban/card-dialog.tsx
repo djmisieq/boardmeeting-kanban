@@ -3,8 +3,7 @@ import { X, Calendar, User, Flag, MessageSquare, History, Check, Paperclip } fro
 import { CardType } from '@/lib/types';
 import CommentSection from '@/components/collaboration/comment-section';
 import CardHistory from '@/components/collaboration/card-history';
-import { useCollaborationStore, trackCardChanges } from '@/store/use-collaboration-store';
-import { useProjectsStore } from '@/store/use-projects-store';
+import { useCollaborationStore } from '@/store/use-collaboration-store';
 
 interface CardDialogProps {
   isOpen: boolean;
@@ -34,11 +33,8 @@ const CardDialog = ({
   // Obsługa zakładek dla różnych sekcji dialogu
   const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details');
   
-  // Pobranie projektów przypisanych do karty
-  const { projects } = useProjectsStore();
-  const cardProjects = projects.filter(
-    project => card?.projectIds?.includes(project.id)
-  );
+  // Zapisz referencję do store'a
+  const collaborationStore = useCollaborationStore();
   
   useEffect(() => {
     if (isOpen && card) {
@@ -73,12 +69,74 @@ const CardDialog = ({
     
     // Jeśli karta istnieje, dodaj wpis do historii zmian
     if (card) {
-      trackCardChanges(
-        card, 
-        {...card, ...updatedCard as CardType}, 
-        currentUser, 
-        departmentId
-      );
+      // Utwórz historię zmian za pomocą własnego kodu
+      if (card.title !== cardTitle) {
+        collaborationStore.addHistoryEntry(
+          card.id,
+          'updated',
+          currentUser,
+          departmentId,
+          {
+            field: 'title',
+            oldValue: card.title,
+            newValue: cardTitle
+          }
+        );
+      }
+      
+      if (card.description !== description) {
+        collaborationStore.addHistoryEntry(
+          card.id,
+          'updated',
+          currentUser,
+          departmentId,
+          {
+            field: 'description',
+            oldValue: card.description,
+            newValue: description
+          }
+        );
+      }
+      
+      if (card.assignee !== assignee) {
+        collaborationStore.addHistoryEntry(
+          card.id,
+          'assigned',
+          currentUser,
+          departmentId,
+          {
+            oldValue: card.assignee,
+            newValue: assignee
+          }
+        );
+      }
+      
+      if (card.priority !== priority) {
+        collaborationStore.addHistoryEntry(
+          card.id,
+          'changed_priority',
+          currentUser,
+          departmentId,
+          {
+            oldValue: card.priority,
+            newValue: priority
+          }
+        );
+      }
+      
+      if (card.dueDate !== dueDate) {
+        collaborationStore.addHistoryEntry(
+          card.id,
+          'updated',
+          currentUser,
+          departmentId,
+          {
+            field: 'dueDate',
+            oldValue: card.dueDate,
+            newValue: dueDate
+          }
+        );
+      }
     }
     
     onSave(updatedCard);
@@ -239,32 +297,6 @@ const CardDialog = ({
                   </label>
                 </div>
               </div>
-              
-              {/* Przypisane projekty */}
-              {card && cardProjects.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Przypisane projekty</label>
-                  <div className="space-y-2">
-                    {cardProjects.map(project => (
-                      <div 
-                        key={project.id}
-                        className="flex items-center p-2 bg-blue-50 dark:bg-blue-900/30 rounded-md"
-                      >
-                        <Check className="h-4 w-4 text-blue-600 dark:text-blue-400 mr-2" />
-                        <div>
-                          <div className="font-medium">{project.name}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            {project.status === 'in-progress' ? 'W trakcie' : 
-                            project.status === 'planning' ? 'Planowanie' :
-                            project.status === 'completed' ? 'Zakończony' :
-                            project.status === 'on-hold' ? 'Wstrzymany' : 'Nie rozpoczęty'}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </form>
           )}
           
