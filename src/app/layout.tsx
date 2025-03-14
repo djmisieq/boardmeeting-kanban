@@ -1,10 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { StoreProvider } from '@/providers/store-provider'
-import { AppProvider } from '@/providers/app-provider'
-import { NotificationProvider } from '@/providers/notification-provider'
-import { ThemeProvider } from '@/providers/theme-provider'
+
+import { ClientProviders } from '@/providers/client-providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,17 +19,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <StoreProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <AppProvider>
-              <NotificationProvider>
-                <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-                  {children}
-                </main>
-              </NotificationProvider>
-            </AppProvider>
-          </ThemeProvider>
-        </StoreProvider>
+        <ClientProviders>
+          <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            {children}
+          </main>
+        </ClientProviders>
       </body>
     </html>
   )
