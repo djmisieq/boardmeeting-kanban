@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Calendar, User, Flag, MoreVertical, Edit, Trash, Share2, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -18,6 +18,7 @@ interface KanbanCardProps {
   columnId?: string;
   onUpdate?: (updates: Partial<CardType>) => void;
   onDelete?: () => void;
+  isDragging?: boolean;
 }
 
 const KanbanCard = ({ 
@@ -30,7 +31,8 @@ const KanbanCard = ({
   boardId,
   columnId,
   onUpdate,
-  onDelete
+  onDelete,
+  isDragging = false
 }: KanbanCardProps) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -39,8 +41,14 @@ const KanbanCard = ({
   const { departments, selectedDepartmentId } = useDepartmentsStore();
   const { transferCardToDepartment } = useKanbanStore();
 
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+  // Apply enhanced configuration to the draggable hook
+  const { attributes, listeners, setNodeRef, transform, isDragging: isCurrentlyDragging } = useDraggable({
     id,
+    data: {
+      type: 'card',
+      boardId,
+      columnId
+    }
   });
 
   const priorityColors = {
@@ -49,10 +57,19 @@ const KanbanCard = ({
     high: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
   };
 
+  // Apply transforms with correct GPU acceleration
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
     zIndex: 999,
+    transition: 'none',
   } : undefined;
+
+  // Close menu when dragging starts to prevent interference
+  useEffect(() => {
+    if (isDragging && showMenu) {
+      setShowMenu(false);
+    }
+  }, [isDragging, showMenu]);
 
   const handleEdit = () => {
     setShowMenu(false);
@@ -79,6 +96,7 @@ const KanbanCard = ({
       dueDate: updatedCard.dueDate,
       priority: updatedCard.priority,
     });
+    setShowEditDialog(false);
   };
   
   const handleShareWithDepartment = (targetDepartmentId: string) => {
@@ -106,6 +124,9 @@ const KanbanCard = ({
   // Check if the due date is overdue
   const isOverdue = dueDate ? new Date(dueDate) < new Date() : false;
 
+  // Combine drag state from local and parent component
+  const finalIsDragging = isDragging || isCurrentlyDragging;
+
   return (
     <>
       <motion.div
@@ -113,8 +134,8 @@ const KanbanCard = ({
         style={style}
         {...listeners}
         {...attributes}
-        whileHover={{ scale: 1.02 }}
-        className="bg-white dark:bg-gray-700 p-3 rounded-md shadow-sm cursor-grab relative"
+        whileHover={{ scale: finalIsDragging ? 1.0 : 1.02 }}
+        className={`bg-white dark:bg-gray-700 p-3 rounded-md shadow-sm ${finalIsDragging ? 'cursor-grabbing opacity-75 shadow-md' : 'cursor-grab'} relative`}
       >
         <div className="flex justify-between items-start">
           <h4 className="font-medium mb-2 pr-6">{title}</h4>
@@ -125,7 +146,7 @@ const KanbanCard = ({
             <MoreVertical className="h-4 w-4" />
           </button>
           
-          {showMenu && (
+          {showMenu && !finalIsDragging && (
             <div className="absolute top-8 right-2 bg-white dark:bg-gray-800 shadow-md rounded-md py-1 z-10 w-32">
               <button 
                 onClick={handleEdit}
