@@ -9,7 +9,7 @@ import {
   Lightbulb, 
   FileText, 
   Target,
-  Building2
+  List
 } from 'lucide-react';
 import DepartmentSelector from './department-selector';
 import { useDepartmentsStore } from '@/store/use-departments-store';
@@ -40,14 +40,9 @@ const Navbar = () => {
   };
 
   const navItems = [
-    {
-      name: 'Organization',
-      href: '/organization',
-      icon: <Building2 className="h-5 w-5" />
-    },
     { 
       name: 'Dashboard', 
-      href: '/dashboard', 
+      href: selectedDepartmentId ? `/dashboard?departmentId=${selectedDepartmentId}` : '/dashboard', 
       icon: <LayoutDashboard className="h-5 w-5" /> 
     },
     { 
@@ -64,6 +59,11 @@ const Navbar = () => {
       name: 'Ideas', 
       href: getBoardPathForDepartment('ideasBoard'), 
       icon: <Lightbulb className="h-5 w-5" /> 
+    },
+    { 
+      name: 'Overview', 
+      href: '/overview', 
+      icon: <List className="h-5 w-5" /> 
     },
     { 
       name: 'Notes', 
