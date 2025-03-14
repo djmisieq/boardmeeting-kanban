@@ -30,7 +30,15 @@ const KanbanColumn = ({
   const [columnTitle, setColumnTitle] = useState(title);
   
   const { selectedDepartmentId } = useDepartmentsStore();
-  const { setNodeRef } = useDroppable({ id });
+  
+  // Enhanced with active/inactive visual state
+  const { setNodeRef, isOver } = useDroppable({ 
+    id,
+    data: {
+      type: 'column',
+      accepts: ['card']
+    }
+  });
 
   const handleSaveCard = (card: Omit<CardType, 'id'>) => {
     onAddCard({
@@ -69,7 +77,8 @@ const KanbanColumn = ({
     <>
       <div
         ref={setNodeRef}
-        className="bg-gray-100 dark:bg-gray-800 rounded-lg flex flex-col min-h-[60vh] max-h-[80vh] overflow-hidden"
+        className={`bg-gray-100 dark:bg-gray-800 rounded-lg flex flex-col min-h-[60vh] max-h-[80vh] overflow-hidden 
+          ${isOver ? 'ring-2 ring-blue-500 ring-opacity-50 shadow-lg' : ''}`}
       >
         <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-750 flex justify-between items-center sticky top-0 z-10">
           <div className="flex items-center space-x-2 flex-1">
@@ -127,7 +136,7 @@ const KanbanColumn = ({
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2 space-y-3">
+        <div className={`flex-1 overflow-y-auto p-2 space-y-3 ${isOver ? 'bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 transition-colors duration-200' : ''}`}>
           {children}
           
           <button 
@@ -145,7 +154,7 @@ const KanbanColumn = ({
         onClose={() => setShowDialog(false)}
         onSave={handleSaveCard}
         title={`Add Card to ${title}`}
-        currentUser="Admin" // Dodajemy wymagane właściwości 
+        currentUser="Admin"
         departmentId={selectedDepartmentId || "default"}
       />
     </>
