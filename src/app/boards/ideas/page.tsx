@@ -1,5 +1,9 @@
+'use client';
+
 import Navbar from '@/components/layout/navbar';
 import KanbanBoard, { ColumnType } from '@/components/kanban/kanban-board';
+import { useState } from 'react';
+import { Search, Lightbulb, Plus } from 'lucide-react';
 
 // Mock data for ideas
 const initialColumns: ColumnType[] = [
@@ -99,6 +103,9 @@ const initialColumns: ColumnType[] = [
 ];
 
 export default function IdeasBoard() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterArea, setFilterArea] = useState('');
+  
   return (
     <div>
       <Navbar />
@@ -113,25 +120,18 @@ export default function IdeasBoard() {
                 type="text"
                 placeholder="Search ideas..."
                 className="pl-9 pr-4 py-2 border rounded-lg"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <svg
-                className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             </div>
             
             <div>
-              <select className="px-4 py-2 border rounded-lg">
+              <select 
+                className="px-4 py-2 border rounded-lg"
+                value={filterArea}
+                onChange={(e) => setFilterArea(e.target.value)}
+              >
                 <option value="">Filter by area</option>
                 <option value="UX">UX / Design</option>
                 <option value="Development">Development</option>
@@ -141,7 +141,8 @@ export default function IdeasBoard() {
               </select>
             </div>
             
-            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center">
+              <Plus className="h-4 w-4 mr-2" />
               Submit Idea
             </button>
           </div>
@@ -183,7 +184,45 @@ export default function IdeasBoard() {
           </div>
         </div>
         
-        <KanbanBoard title="" initialColumns={initialColumns} />
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+          <h2 className="text-xl font-medium mb-4">Ideas Overview</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center">
+              <Lightbulb className="h-10 w-10 text-yellow-500 mr-3" />
+              <div>
+                <div className="text-xl font-bold">3</div>
+                <div className="text-sm text-gray-500">Proposed Ideas</div>
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center">
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 mr-3">2</div>
+              <div>
+                <div className="text-xl font-bold">Approved</div>
+                <div className="text-sm text-gray-500">Ready for Implementation</div>
+              </div>
+            </div>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-center">
+              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 mr-3">2</div>
+              <div>
+                <div className="text-xl font-bold">In Progress</div>
+                <div className="text-sm text-gray-500">Being Implemented</div>
+              </div>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center">
+              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 mr-3">2</div>
+              <div>
+                <div className="text-xl font-bold">Implemented</div>
+                <div className="text-sm text-gray-500">Ideas in Action</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <KanbanBoard 
+          boardId="ideas-board" 
+          title="" 
+          initialColumns={initialColumns} 
+        />
       </div>
     </div>
   );
