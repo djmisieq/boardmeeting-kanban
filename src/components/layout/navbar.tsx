@@ -4,77 +4,33 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
-  CheckSquare, 
-  AlertCircle, 
-  Lightbulb, 
   FileText, 
-  Target,
-  List
+  Kanban
 } from 'lucide-react';
 import DepartmentSelector from './department-selector';
 import { useDepartmentsStore } from '@/store/use-departments-store';
 
 const Navbar = () => {
   const pathname = usePathname();
-  const { selectedDepartmentId, departments } = useDepartmentsStore();
+  const { selectedDepartmentId } = useDepartmentsStore();
   
-  const selectedDepartment = departments.find(d => d.id === selectedDepartmentId);
-  
-  const getBoardPathForDepartment = (boardType: 'tasksBoard' | 'problemsBoard' | 'ideasBoard') => {
-    if (!selectedDepartment) return '';
-    
-    const defaultPaths = {
-      tasksBoard: '/boards/tasks',
-      problemsBoard: '/boards/problems',
-      ideasBoard: '/boards/ideas',
-    };
-    
-    // If the department has a specific board for this type, use it
-    const boardId = selectedDepartment.boardIds[boardType];
-    if (boardId) {
-      return `${defaultPaths[boardType]}?departmentId=${selectedDepartmentId}`;
-    }
-    
-    // Otherwise use the default path
-    return defaultPaths[boardType];
-  };
-
+  // Uproszczona nawigacja - tylko trzy główne sekcje
   const navItems = [
+    { 
+      name: 'Tablica', 
+      href: selectedDepartmentId ? `/board?departmentId=${selectedDepartmentId}` : '/board', 
+      icon: <Kanban className="h-5 w-5" /> 
+    },
     { 
       name: 'Dashboard', 
       href: selectedDepartmentId ? `/dashboard?departmentId=${selectedDepartmentId}` : '/dashboard', 
       icon: <LayoutDashboard className="h-5 w-5" /> 
     },
     { 
-      name: 'Tasks', 
-      href: getBoardPathForDepartment('tasksBoard'), 
-      icon: <CheckSquare className="h-5 w-5" /> 
-    },
-    { 
-      name: 'Problems', 
-      href: getBoardPathForDepartment('problemsBoard'), 
-      icon: <AlertCircle className="h-5 w-5" /> 
-    },
-    { 
-      name: 'Ideas', 
-      href: getBoardPathForDepartment('ideasBoard'), 
-      icon: <Lightbulb className="h-5 w-5" /> 
-    },
-    { 
-      name: 'Overview', 
-      href: '/overview', 
-      icon: <List className="h-5 w-5" /> 
-    },
-    { 
-      name: 'Notes', 
+      name: 'Notatki', 
       href: '/notes', 
       icon: <FileText className="h-5 w-5" /> 
-    },
-    { 
-      name: 'Goals', 
-      href: '/goals', 
-      icon: <Target className="h-5 w-5" /> 
-    },
+    }
   ];
 
   return (
