@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { DndContext, DragEndEvent, closestCorners } from '@dnd-kit/core';
+import { 
+  DndContext, 
+  DragEndEvent, 
+  closestCorners, 
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragOverEvent
+} from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
 
@@ -34,6 +43,18 @@ const KanbanBoard = ({
     deleteCard,
     getBoard
   } = useKanbanStore();
+  
+  // Set up sensors for drag and drop with proper configuration
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Only start dragging after moving 8px - prevents accidental drags
+      },
+    })
+  );
+  
+  // Active dragging state tracking
+  const [activeId, setActiveId] = useState<string | null>(null);
   
   // Get columns from the store if available
   const board = getBoard(boardId);
@@ -88,8 +109,18 @@ const KanbanBoard = ({
     setFilteredColumns(storeColumns);
   }, [storeColumns]);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+  
+  const handleDragOver = (event: DragOverEvent) => {
+    // Optional drag over handling can be implemented here if needed for visual feedback
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    
+    setActiveId(null);
     
     if (!over) return;
     
@@ -148,8 +179,14 @@ const KanbanBoard = ({
         </button>
       </div>
       
-      <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <DndContext 
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd} 
+        collisionDetection={closestCorners}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredColumns.map(column => (
             <KanbanColumn 
               key={column.id} 
@@ -170,6 +207,7 @@ const KanbanBoard = ({
                   columnId={column.id}
                   onUpdate={(updates) => handleUpdateCard(column.id, card.id, updates)}
                   onDelete={() => handleDeleteCard(column.id, card.id)}
+                  isDragging={activeId === card.id}
                 />
               ))}
             </KanbanColumn>
