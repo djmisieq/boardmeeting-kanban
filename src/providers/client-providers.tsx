@@ -13,7 +13,7 @@ import { ThemeProvider } from '@/providers/theme-provider';
 export function ClientProviders({ children }: { children: ReactNode }) {
   return (
     <StoreProvider>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider defaultTheme="system" enableSystem attribute="class">
         <AppProvider>
           <NotificationProvider>
             {children}
