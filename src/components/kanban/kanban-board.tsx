@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, closestCorners } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 
 import KanbanColumn from './kanban-column';
 import KanbanCard from './kanban-card';
+import { useKanbanStore } from '@/store/use-kanban-store';
 
 export type CardType = {
   id: string;
@@ -21,12 +22,25 @@ export type ColumnType = {
 };
 
 type KanbanBoardProps = {
+  boardId: string;
   title: string;
   initialColumns: ColumnType[];
 };
 
-const KanbanBoard = ({ title, initialColumns }: KanbanBoardProps) => {
-  const [columns, setColumns] = useState<ColumnType[]>(initialColumns);
+const KanbanBoard = ({ boardId, title, initialColumns }: KanbanBoardProps) => {
+  const { 
+    initializeBoard, 
+    moveCard, 
+    addCard: storeAddCard 
+  } = useKanbanStore();
+  
+  const columns = useKanbanStore(state => 
+    state.boards[boardId]?.columns || initialColumns
+  );
+
+  useEffect(() => {
+    initializeBoard(boardId, initialColumns);
+  }, [boardId, initialColumns, initializeBoard]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -50,44 +64,26 @@ const KanbanBoard = ({ title, initialColumns }: KanbanBoardProps) => {
     
     // If the card is dropped in a different column
     if (sourceColumn.id !== destColumn.id) {
-      // Find the card in the source column
-      const cardIndex = sourceColumn.cards.findIndex(card => card.id === activeCardId);
-      const [movedCard] = sourceColumn.cards.splice(cardIndex, 1);
-      
-      // Add the card to the destination column
-      destColumn.cards.push(movedCard);
-      
-      // Update the columns
-      setColumns([...columns]);
+      moveCard(boardId, activeCardId, sourceColumn.id, destColumn.id);
     }
   };
 
-  const addCard = (columnId: string, card: CardType) => {
-    const newColumns = columns.map(column => {
-      if (column.id === columnId) {
-        return {
-          ...column,
-          cards: [...column.cards, card]
-        };
-      }
-      return column;
-    });
-    
-    setColumns(newColumns);
+  const handleAddCard = (columnId: string, card: CardType) => {
+    storeAddCard(boardId, columnId, card);
   };
   
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-6">{title}</h1>
+      {title && <h1 className="text-2xl font-bold mb-6">{title}</h1>}
       
       <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {columns.map(column => (
             <KanbanColumn 
               key={column.id} 
               id={column.id} 
               title={column.title}
-              onAddCard={(card) => addCard(column.id, card)}
+              onAddCard={(card) => handleAddCard(column.id, card)}
             >
               {column.cards.map(card => (
                 <KanbanCard 
