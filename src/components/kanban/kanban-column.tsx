@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { Plus, MoreVertical, Edit, Trash } from 'lucide-react';
 import { CardType } from '@/lib/types';
@@ -145,6 +145,8 @@ const KanbanColumn = ({
         onClose={() => setShowDialog(false)}
         onSave={handleSaveCard}
         title={`Add Card to ${title}`}
+        currentUser="Admin" // Dodajemy wymagane właściwości 
+        departmentId={selectedDepartmentId || "default"}
       />
     </>
   );
