@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, closestCorners } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
