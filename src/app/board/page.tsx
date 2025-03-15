@@ -12,15 +12,15 @@ export default function BoardPage() {
   const searchParams = useSearchParams();
   const departmentId = searchParams.get('departmentId');
   
-  const { setSelectedDepartment } = useDepartmentsStore();
+  const { selectDepartment } = useDepartmentsStore();
   const { getBoard, initializeBoard } = useKanbanStore();
   
   // Efekt do ustawienia wybranego działu z parametrów URL
   useEffect(() => {
     if (departmentId) {
-      setSelectedDepartment(departmentId);
+      selectDepartment(departmentId);
     }
-  }, [departmentId, setSelectedDepartment]);
+  }, [departmentId, selectDepartment]);
   
   // Efekt do inicjalizacji tablic, jeśli nie istnieją
   useEffect(() => {
