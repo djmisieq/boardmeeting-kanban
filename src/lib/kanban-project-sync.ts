@@ -1,6 +1,7 @@
 import { useKanbanStore } from '@/store/use-kanban-store';
 import { useProjectsStore } from '@/store/use-projects-store';
-import { ProjectStatus } from '@/lib/types';
+import { useMeetingsStore } from '@/store/use-meetings-store';
+import { ProjectStatus, CardType } from '@/lib/types';
 import { 
   getProjectStatusFromColumn, 
   getProgressFromColumn,
@@ -169,6 +170,200 @@ export const syncProjectStatusWithCards = (
     return {
       success: false,
       message: 'Wystąpił błąd podczas synchronizacji'
+    };
+  }
+};
+
+/**
+ * Synchronizuje kartę Kanban ze spotkaniem, aktualizując status w spotkaniu
+ * @param cardId ID karty Kanban
+ * @param columnId ID kolumny
+ * @returns Informacja o wykonanej synchronizacji
+ */
+export const syncKanbanCardWithMeeting = (
+  cardId: string,
+  boardId: string,
+  columnId: string
+): { success: boolean; message: string } => {
+  try {
+    const kanbanStore = useKanbanStore.getState();
+    const meetingsStore = useMeetingsStore.getState();
+    
+    // Get all meetings
+    const meetings = meetingsStore.meetings;
+    
+    // Counter for updated meetings
+    let updatedMeetingsCount = 0;
+    
+    // Find meetings that have this card as an outcome
+    for (const meeting of meetings) {
+      const outcomeTypes = ['tasks', 'problems', 'ideas'] as const;
+      let cardUpdated = false;
+      
+      for (const type of outcomeTypes) {
+        if (!meeting.outcomes[type]) continue;
+        
+        const outcomeIndex = meeting.outcomes[type].findIndex(outcome => outcome.id === cardId);
+        
+        if (outcomeIndex >= 0) {
+          // Found the card in this meeting's outcomes
+          // Update the card's columnId in the meeting's outcomes
+          const outcomes = [...meeting.outcomes[type]];
+          outcomes[outcomeIndex] = {
+            ...outcomes[outcomeIndex],
+            columnId: columnId
+          };
+          
+          // Create an updated outcomes object
+          const updatedOutcomes = {
+            ...meeting.outcomes,
+            [type]: outcomes
+          };
+          
+          // Update the meeting with new outcomes
+          meetingsStore.updateMeeting(meeting.id, { outcomes: updatedOutcomes });
+          updatedMeetingsCount++;
+          cardUpdated = true;
+          break;
+        }
+      }
+      
+      if (cardUpdated) {
+        // If we found and updated the card in this meeting, no need to check other meetings
+        // Assuming a card can only be in one meeting's outcomes
+        break;
+      }
+    }
+    
+    return {
+      success: updatedMeetingsCount > 0,
+      message: updatedMeetingsCount > 0 
+        ? `Zaktualizowano status karty w ${updatedMeetingsCount} spotkaniach` 
+        : 'Nie znaleziono spotkań powiązanych z tą kartą'
+    };
+  } catch (error) {
+    console.error('Błąd podczas synchronizacji karty ze spotkaniem:', error);
+    return {
+      success: false,
+      message: 'Wystąpił błąd podczas synchronizacji'
+    };
+  }
+};
+
+/**
+ * Dodaje nowo utworzoną kartę Kanban do wyników spotkania
+ * @param card Nowa karta Kanban
+ * @param meetingId ID spotkania
+ * @param agendaItemId Opcjonalne ID punktu agendy
+ * @returns Informacja o wykonanej synchronizacji
+ */
+export const addKanbanCardToMeeting = (
+  card: CardType,
+  meetingId: string,
+  agendaItemId?: string
+): { success: boolean; message: string } => {
+  try {
+    const meetingsStore = useMeetingsStore.getState();
+    
+    // Get the meeting
+    const meeting = meetingsStore.getMeeting(meetingId);
+    
+    if (!meeting) {
+      return {
+        success: false,
+        message: 'Spotkanie nie zostało znalezione'
+      };
+    }
+    
+    // Determine the outcome type based on card category
+    let outcomeType: 'tasks' | 'problems' | 'ideas';
+    switch (card.category) {
+      case 'task':
+        outcomeType = 'tasks';
+        break;
+      case 'problem':
+        outcomeType = 'problems';
+        break;
+      case 'idea':
+        outcomeType = 'ideas';
+        break;
+      default:
+        return {
+          success: false,
+          message: 'Nieznany typ karty'
+        };
+    }
+    
+    // If agendaItemId is provided, add the card to that agenda item's outcomes
+    if (agendaItemId) {
+      const agendaItem = meeting.agenda.find(item => item.id === agendaItemId);
+      
+      if (!agendaItem) {
+        return {
+          success: false,
+          message: 'Punkt agendy nie został znaleziony'
+        };
+      }
+      
+      // Create updated agenda with the card added to the specific agenda item
+      const updatedAgenda = meeting.agenda.map(item => {
+        if (item.id === agendaItemId) {
+          return {
+            ...item,
+            outcome: {
+              ...item.outcome,
+              [outcomeType]: [
+                ...(item.outcome?.[outcomeType] || []),
+                card
+              ]
+            }
+          };
+        }
+        return item;
+      });
+      
+      // Also add to overall meeting outcomes
+      const updatedOutcomes = {
+        ...meeting.outcomes,
+        [outcomeType]: [
+          ...(meeting.outcomes[outcomeType] || []),
+          card
+        ]
+      };
+      
+      // Update meeting with new agenda and outcomes
+      meetingsStore.updateMeeting(meeting.id, { 
+        agenda: updatedAgenda,
+        outcomes: updatedOutcomes
+      });
+      
+      return {
+        success: true,
+        message: `Dodano kartę do punktu agendy i wyników spotkania`
+      };
+    } else {
+      // Just add to meeting outcomes
+      const updatedOutcomes = {
+        ...meeting.outcomes,
+        [outcomeType]: [
+          ...(meeting.outcomes[outcomeType] || []),
+          card
+        ]
+      };
+      
+      // Update meeting with new outcomes
+      meetingsStore.updateMeeting(meeting.id, { outcomes: updatedOutcomes });
+      
+      return {
+        success: true,
+        message: `Dodano kartę do wyników spotkania`
+      };
+    }
+  } catch (error) {
+    console.error('Błąd podczas dodawania karty do spotkania:', error);
+    return {
+      success: false,
+      message: 'Wystąpił błąd podczas dodawania karty'
     };
   }
 };
