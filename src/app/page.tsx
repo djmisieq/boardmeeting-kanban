@@ -13,7 +13,8 @@ import {
   FileText, 
   LayoutDashboard, 
   Users, 
-  Kanban
+  Kanban,
+  Split
 } from 'lucide-react';
 
 export default function Home() {
@@ -126,6 +127,22 @@ export default function Home() {
                 </p>
                 <div className="text-blue-600 dark:text-blue-400 group-hover:underline flex items-center">
                   Otwórz tablicę <CheckSquare className="h-3 w-3 ml-1" />
+                </div>
+              </div>
+            </Link>
+            
+            {/* NEW: Integrated Board Card */}
+            <Link href="/integrated-board" className="group">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6 transition-all duration-300 hover:shadow-md hover:border-purple-300 dark:hover:border-purple-700">
+                <div className="flex items-center mb-4">
+                  <Split className="h-6 w-6 text-purple-600 dark:text-purple-400 mr-2" />
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Zintegrowana tablica</h2>
+                </div>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  Połączony widok tablic Kanban i projektów w jednym miejscu
+                </p>
+                <div className="text-blue-600 dark:text-blue-400 group-hover:underline flex items-center">
+                  Otwórz zintegrowaną tablicę <CheckSquare className="h-3 w-3 ml-1" />
                 </div>
               </div>
             </Link>
