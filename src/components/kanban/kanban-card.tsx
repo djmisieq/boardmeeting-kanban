@@ -1,11 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { Calendar, User, Flag, MoreVertical, Edit, Trash, Share2, ExternalLink } from 'lucide-react';
+import { 
+  Calendar, 
+  User, 
+  Flag, 
+  MoreVertical, 
+  Edit, 
+  Trash, 
+  Share2, 
+  ExternalLink, 
+  Briefcase 
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CardType } from '@/lib/types';
 import { useKanbanStore } from '@/store/use-kanban-store';
 import { useDepartmentsStore } from '@/store/use-departments-store';
+import { useProjectsStore } from '@/store/use-projects-store';
 import CardDialog from './card-dialog';
+import CardToProjectDialog from './card-to-project-dialog';
 
 interface KanbanCardProps {
   id: string;
@@ -39,9 +51,11 @@ const KanbanCard = ({
   const [showMenu, setShowMenu] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
   
   const { departments, selectedDepartmentId } = useDepartmentsStore();
-  const { transferCardToDepartment } = useKanbanStore();
+  const { transferCardToDepartment, updateCard } = useKanbanStore();
+  const { projects } = useProjectsStore();
 
   // Apply enhanced configuration to the draggable hook
   const { attributes, listeners, setNodeRef, transform, isDragging: isCurrentlyDragging } = useDraggable({
@@ -52,6 +66,22 @@ const KanbanCard = ({
       columnId
     }
   });
+
+  // Determine card category based on boardId
+  const getCardCategory = (): 'task' | 'problem' | 'idea' => {
+    if (!boardId) return 'task';
+    if (boardId.includes('tasks')) return 'task';
+    if (boardId.includes('problems')) return 'problem';
+    if (boardId.includes('ideas')) return 'idea';
+    return 'task';
+  };
+
+  const cardCategory = getCardCategory();
+
+  // Check if the card is already connected to a project
+  const connectedProjects = projects.filter(project => 
+    project.tasks.some(task => task.cardId === id)
+  );
 
   const priorityColors = {
     low: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100',
@@ -90,23 +120,21 @@ const KanbanCard = ({
     setShowShareDialog(true);
   };
 
+  const handleCreateProject = () => {
+    setShowMenu(false);
+    setShowProjectDialog(true);
+  };
+
   const handleSaveCard = (updatedCard: Omit<CardType, 'id'>) => {
-    onUpdate?.({
-      title: updatedCard.title,
-      description: updatedCard.description,
-      assignee: updatedCard.assignee,
-      dueDate: updatedCard.dueDate,
-      priority: updatedCard.priority,
-    });
+    onUpdate?.(updatedCard);
     setShowEditDialog(false);
   };
   
   const handleShareWithDepartment = (targetDepartmentId: string) => {
     if (boardId && columnId && targetDepartmentId) {
       // Determine the target board based on the current board type
-      const currentBoardType = boardId.includes('tasks') ? 'tasks' : 
-                              boardId.includes('problems') ? 'problems' : 'ideas';
-                              
+      const currentBoardType = cardCategory + 's';
+      
       const targetBoardId = `${targetDepartmentId}-${currentBoardType}`;
       const targetColumnId = `${targetBoardId}-${columnId.split('-').pop()}`;
       
@@ -120,6 +148,21 @@ const KanbanCard = ({
       );
       
       setShowShareDialog(false);
+    }
+  };
+
+  // Handle card update after project creation
+  const handleProjectCreated = (projectId: string) => {
+    if (boardId && columnId) {
+      // Update the card to include the project ID
+      const updates: Partial<CardType> = {
+        projectIds: [projectId]
+      };
+      
+      updateCard(boardId, columnId, id, updates);
+      
+      // Close the dialog
+      setShowProjectDialog(false);
     }
   };
   
@@ -145,6 +188,15 @@ const KanbanCard = ({
             {categoryIcon}
           </div>
         )}
+
+        {/* Oznaczenie, jeśli karta jest powiązana z projektem */}
+        {connectedProjects.length > 0 && (
+          <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2">
+            <div className="bg-purple-500 text-white rounded-full p-1 shadow-sm">
+              <Briefcase className="h-3 w-3" />
+            </div>
+          </div>
+        )}
         
         <div className="flex justify-between items-start">
           <h4 className="font-medium mb-2 pr-6">{title}</h4>
@@ -156,7 +208,7 @@ const KanbanCard = ({
           </button>
           
           {showMenu && !finalIsDragging && (
-            <div className="absolute top-8 right-2 bg-white dark:bg-gray-800 shadow-md rounded-md py-1 z-10 w-32">
+            <div className="absolute top-8 right-2 bg-white dark:bg-gray-800 shadow-md rounded-md py-1 z-10 w-44">
               <button 
                 onClick={handleEdit}
                 className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -171,6 +223,14 @@ const KanbanCard = ({
               >
                 <Share2 className="h-4 w-4 mr-2" />
                 Udostępnij
+              </button>
+
+              <button 
+                onClick={handleCreateProject}
+                className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <Briefcase className="h-4 w-4 mr-2" />
+                Przekształć w projekt
               </button>
               
               <button 
@@ -211,6 +271,13 @@ const KanbanCard = ({
               <Flag className="h-3 w-3 mr-1" />
               {priority === 'low' ? 'Niski' : 
                priority === 'medium' ? 'Średni' : 'Wysoki'}
+            </div>
+          )}
+
+          {connectedProjects.length > 0 && (
+            <div className="flex items-center text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100">
+              <Briefcase className="h-3 w-3 mr-1" />
+              Projekt
             </div>
           )}
         </div>
@@ -263,6 +330,19 @@ const KanbanCard = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Card to Project Dialog */}
+      {showProjectDialog && (
+        <CardToProjectDialog
+          isOpen={showProjectDialog}
+          onClose={() => setShowProjectDialog(false)}
+          card={{ id, title, description, assignee, dueDate, priority }}
+          boardId={boardId || ''}
+          columnId={columnId || ''}
+          category={cardCategory}
+          departmentId={selectedDepartmentId || 'default'}
+        />
       )}
     </>
   );
