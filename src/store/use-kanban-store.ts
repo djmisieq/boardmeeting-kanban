@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { BoardType, ColumnType, CardType } from '@/lib/types';
 import { generateBoardStatistics } from '@/lib/board-utils';
+import { useProjectsStore } from './use-projects-store';
 
 interface KanbanState {
   boards: Record<string, BoardType>;
@@ -27,6 +28,11 @@ interface KanbanState {
   addColumn: (boardId: string, column: Omit<ColumnType, 'id' | 'cards'>) => void;
   deleteColumn: (boardId: string, columnId: string) => void;
   updateColumnOrder: (boardId: string, columnIds: string[]) => void;
+  
+  // Helper functions
+  findCardById: (cardId: string) => CardType | null;
+  getColumnById: (columnId: string) => ColumnType | null;
+  getCardStatus: (cardId: string, boardId?: string) => string | null;
 }
 
 // Generate a default board structure for different board types
@@ -147,12 +153,21 @@ export const useKanbanStore = create<KanbanState>()(
             updatedAt: new Date().toISOString(),
           };
           
-          return {
+          const result = {
             boards: {
               ...state.boards,
               [boardId]: updatedBoard,
             },
           };
+          
+          // Synchronize with projects (after the state is updated)
+          setTimeout(() => {
+            const { syncProjectWithCard } = useProjectsStore.getState();
+            const targetColumn = newColumns[destColumnIndex];
+            syncProjectWithCard(cardId, targetColumn.title);
+          }, 0);
+          
+          return result;
         });
       },
       
@@ -212,12 +227,22 @@ export const useKanbanStore = create<KanbanState>()(
             updatedAt: new Date().toISOString(),
           };
           
-          return {
+          const result = {
             boards: {
               ...state.boards,
               [boardId]: updatedBoard,
             },
           };
+          
+          // Synchronize with projects if the card has a projectId reference
+          if (updates.projectId || newColumns[columnIndex].cards[cardIndex].projectId) {
+            setTimeout(() => {
+              const { syncProjectWithCard } = useProjectsStore.getState();
+              syncProjectWithCard(cardId, newColumns[columnIndex].title);
+            }, 0);
+          }
+          
+          return result;
         });
       },
       
@@ -315,7 +340,7 @@ export const useKanbanStore = create<KanbanState>()(
           targetColumns[targetColumnIndex].cards.push(updatedCard);
           
           // Update both boards
-          return {
+          const result = {
             boards: {
               ...state.boards,
               [sourceBoardId]: {
@@ -330,6 +355,16 @@ export const useKanbanStore = create<KanbanState>()(
               },
             },
           };
+          
+          // Synchronize with projects
+          setTimeout(() => {
+            if (movedCard.projectId) {
+              const { syncProjectWithCard } = useProjectsStore.getState();
+              syncProjectWithCard(cardId, targetColumns[targetColumnIndex].title);
+            }
+          }, 0);
+          
+          return result;
         });
       },
       
@@ -404,6 +439,51 @@ export const useKanbanStore = create<KanbanState>()(
           };
         });
       },
+      
+      // Helper functions to find cards and columns across all boards
+      findCardById: (cardId) => {
+        const allBoards = Object.values(get().boards);
+        for (const board of allBoards) {
+          for (const column of board.columns) {
+            const card = column.cards.find(c => c.id === cardId);
+            if (card) return card;
+          }
+        }
+        return null;
+      },
+      
+      getColumnById: (columnId) => {
+        const allBoards = Object.values(get().boards);
+        for (const board of allBoards) {
+          const column = board.columns.find(c => c.id === columnId);
+          if (column) return column;
+        }
+        return null;
+      },
+      
+      getCardStatus: (cardId, boardId) => {
+        // Jeśli podano boardId, szukaj tylko w tym boardzie
+        if (boardId) {
+          const board = get().boards[boardId];
+          if (!board) return null;
+          
+          for (const column of board.columns) {
+            const cardExists = column.cards.some(c => c.id === cardId);
+            if (cardExists) return column.title;
+          }
+          return null;
+        }
+        
+        // Szukaj we wszystkich boardach
+        const allBoards = Object.values(get().boards);
+        for (const board of allBoards) {
+          for (const column of board.columns) {
+            const cardExists = column.cards.some(c => c.id === cardId);
+            if (cardExists) return column.title;
+          }
+        }
+        return null;
+      }
     }),
     {
       name: 'kanban-storage',
