@@ -16,6 +16,8 @@ import {
 import Link from 'next/link';
 import { CardType } from '@/lib/types';
 import CardToProjectDialog from './card-to-project-dialog';
+import MeetingBadge from '@/components/meetings/meeting-badge';
+import { useMeetingsStore } from '@/store/use-meetings-store';
 
 interface KanbanCardProps {
   id: string;
@@ -28,6 +30,7 @@ interface KanbanCardProps {
   columnId?: string;
   isDragging?: boolean;
   categoryIcon?: React.ReactNode;
+  meetingId?: string;
   onUpdate?: (updates: Partial<CardType>) => void;
   onDelete?: () => void;
 }
@@ -43,11 +46,37 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
   columnId,
   isDragging = false,
   categoryIcon,
+  meetingId,
   onUpdate,
   onDelete
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const { meetings } = useMeetingsStore();
+  
+  // Find meetingId if it's not provided directly
+  const findMeetingId = (): string | undefined => {
+    if (meetingId) return meetingId;
+    
+    // Find card in meeting outcomes
+    for (const meeting of meetings) {
+      // Check tasks
+      const taskFound = meeting.outcomes?.tasks?.find(task => task.id === id);
+      if (taskFound) return meeting.id;
+      
+      // Check problems
+      const problemFound = meeting.outcomes?.problems?.find(problem => problem.id === id);
+      if (problemFound) return meeting.id;
+      
+      // Check ideas
+      const ideaFound = meeting.outcomes?.ideas?.find(idea => idea.id === id);
+      if (ideaFound) return meeting.id;
+    }
+    
+    return undefined;
+  };
+  
+  const cardMeetingId = findMeetingId();
   
   const {
     attributes,
@@ -198,6 +227,17 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
                   Przekształć w projekt
                 </button>
                 
+                {cardMeetingId && (
+                  <Link
+                    href={`/meetings/${cardMeetingId}`}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center text-purple-600 dark:text-purple-400"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Przejdź do spotkania
+                  </Link>
+                )}
+                
                 {onDelete && (
                   <button
                     onClick={() => {
@@ -217,9 +257,15 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
           </div>
         </div>
         
-        {/* Etykieta z priorytetem */}
-        {priority && (
-          <div className="mt-2">
+        {/* Badges Section */}
+        <div className="mt-2 flex flex-wrap gap-1">
+          {/* Meeting Badge */}
+          {cardMeetingId && (
+            <MeetingBadge meetingId={cardMeetingId} size="sm" isCard={true} />
+          )}
+          
+          {/* Priority Badge */}
+          {priority && (
             <span className={`text-xs px-2 py-1 rounded-full ${
               priority === 'high' 
                 ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' 
@@ -229,8 +275,8 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
             }`}>
               {priority === 'high' ? 'Wysoki' : priority === 'medium' ? 'Średni' : 'Niski'} priorytet
             </span>
-          </div>
-        )}
+          )}
+        </div>
         
         {/* Stopka karty - osoba przypisana i data */}
         <div className="mt-4 pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
