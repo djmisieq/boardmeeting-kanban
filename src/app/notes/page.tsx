@@ -7,7 +7,8 @@ import Navbar from '@/components/layout/navbar';
 import { useMeetingNotesStore } from '@/store/use-meeting-notes-store';
 import { useDepartmentsStore } from '@/store/use-departments-store';
 import { MeetingNote } from '@/lib/types';
-import { Search, Filter, Users, Plus, Calendar, Tag, ChevronDown, FileText, Share2, Edit, Trash } from 'lucide-react';
+import ExportNotesDialog from '@/components/notes/export-notes-dialog';
+import { Search, Filter, Users, Plus, Calendar, Tag, ChevronDown, FileText, Share2, Edit, Trash, Download } from 'lucide-react';
 
 export default function NotesPage() {
   const searchParams = useSearchParams();
@@ -18,6 +19,7 @@ export default function NotesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [currentNote, setCurrentNote] = useState<MeetingNote | null>(null);
   const [newNote, setNewNote] = useState<Partial<MeetingNote>>({
     title: '',
@@ -222,6 +224,15 @@ export default function NotesPage() {
                 </select>
               </div>
             )}
+            
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center"
+              disabled={finalDisplayedNotes.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </button>
             
             <button
               onClick={() => setShowCreateModal(true)}
@@ -646,6 +657,14 @@ Important points discussed...
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Export Notes Modal */}
+      {showExportModal && (
+        <ExportNotesDialog
+          notes={finalDisplayedNotes}
+          onClose={() => setShowExportModal(false)}
+        />
       )}
     </div>
   );
