@@ -1,232 +1,242 @@
 'use client';
 
-import { useState } from 'react';
-import Navbar from '@/components/layout/navbar';
-import { useProjectsStore } from '@/store/use-projects-store';
-import { useDepartmentsStore } from '@/store/use-departments-store';
-import ProjectCard from '@/components/projects/project-card';
-import ProjectForm from '@/components/projects/project-form';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { 
   Plus, 
   Search, 
-  CheckCircle2, 
-  Clock, 
-  PauseCircle, 
-  AlertTriangle, 
-  Tag 
+  Calendar, 
+  User, 
+  Check, 
+  X,
+  Filter,
+  Building
 } from 'lucide-react';
+import { useProjectsStore } from '@/store/use-projects-store';
+import { useDepartmentsStore } from '@/store/use-departments-store';
 import { ProjectStatus } from '@/lib/types';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 export default function ProjectsPage() {
   const { projects } = useProjectsStore();
-  const { departments } = useDepartmentsStore();
+  const { departments, selectedDepartmentId, setSelectedDepartment } = useDepartmentsStore();
   
-  // Stan dla filtrów i wyszukiwania
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<ProjectStatus | 'all'>('all');
-  const [filterDepartment, setFilterDepartment] = useState<string>('');
-  const [showNewProjectForm, setShowNewProjectForm] = useState(false);
+  // Filtry
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string | 'all'>(selectedDepartmentId || 'all');
   
-  // Filtrowanie projektów
+  // Efekt dla filtra działu
+  useEffect(() => {
+    if (selectedDepartmentId) {
+      setDepartmentFilter(selectedDepartmentId);
+    }
+  }, [selectedDepartmentId]);
+  
+  // Zastosowanie filtrów
   const filteredProjects = projects.filter(project => {
-    // Filtr według wyszukiwanego tekstu
-    if (searchQuery && 
-        !project.name.toLowerCase().includes(searchQuery.toLowerCase()) && 
-        !project.description?.toLowerCase().includes(searchQuery.toLowerCase())) {
+    // Filtr wyszukiwania
+    if (
+      searchTerm && 
+      !project.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !project.description.toLowerCase().includes(searchTerm.toLowerCase())
+    ) {
       return false;
     }
     
-    // Filtr według statusu
-    if (filterStatus !== 'all' && project.status !== filterStatus) {
+    // Filtr statusu
+    if (statusFilter !== 'all' && project.status !== statusFilter) {
       return false;
     }
     
-    // Filtr według działu
-    if (filterDepartment && !project.departments.includes(filterDepartment)) {
+    // Filtr działu
+    if (departmentFilter !== 'all' && !project.departments.includes(departmentFilter)) {
       return false;
     }
     
     return true;
   });
   
-  // Sortowanie projektów - najpierw w trakcie, potem planowane, potem zakończone
-  const sortedProjects = [...filteredProjects].sort((a, b) => {
-    const statusOrder = {
-      'in-progress': 0,
-      'planning': 1,
-      'not-started': 2,
-      'on-hold': 3,
-      'completed': 4
-    };
-    
-    // Sortuj według statusu
-    const statusComparison = statusOrder[a.status] - statusOrder[b.status];
-    if (statusComparison !== 0) return statusComparison;
-    
-    // Jeśli status jest taki sam, sortuj według daty zakończenia (od najbliższej)
-    return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
-  });
+  // Obsługa zmiany filtra działu
+  const handleDepartmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const deptId = e.target.value;
+    setDepartmentFilter(deptId);
+    setSelectedDepartment(deptId === 'all' ? null : deptId);
+  };
   
-  // Obsługa pomyślnego utworzenia projektu
-  const handleProjectCreated = (projectId: string) => {
-    setShowNewProjectForm(false);
-    // Tutaj można dodać np. przekierowanie do widoku szczegółów projektu
+  // Helper dla kolorów statusu
+  const getStatusColor = (status: ProjectStatus) => {
+    switch (status) {
+      case 'not-started':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+      case 'planning':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'in-progress':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'on-hold':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'completed':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+    }
+  };
+  
+  const getStatusLabel = (status: ProjectStatus) => {
+    switch (status) {
+      case 'not-started':
+        return 'Nie rozpoczęty';
+      case 'planning':
+        return 'Planowanie';
+      case 'in-progress':
+        return 'W trakcie';
+      case 'on-hold':
+        return 'Wstrzymany';
+      case 'completed':
+        return 'Zakończony';
+      default:
+        return status;
+    }
   };
   
   return (
-    <div>
-      <Navbar />
-      
-      <div className="max-w-screen-xl mx-auto p-6">
+    <ErrorBoundary>
+      <div className="container mx-auto py-6 px-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Projekty międzydziałowe</h1>
+          <h1 className="text-2xl font-bold">Projekty</h1>
           
-          <button
-            onClick={() => setShowNewProjectForm(prev => !prev)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"
+          <Link
+            href="/projects/new"
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
-            {showNewProjectForm ? 'Anuluj' : 'Nowy projekt'}
-            {!showNewProjectForm && <Plus size={16} />}
-          </button>
+            <Plus className="h-4 w-4 mr-2" />
+            Nowy projekt
+          </Link>
         </div>
         
-        {showNewProjectForm && (
-          <div className="mb-8 bg-white dark:bg-gray-900 p-6 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <h2 className="text-xl font-semibold mb-4">Utwórz nowy projekt</h2>
-            <ProjectForm 
-              onSuccess={handleProjectCreated}
-              onCancel={() => setShowNewProjectForm(false)}
-            />
-          </div>
-        )}
-        
-        <div className="mb-6 flex flex-wrap gap-3">
-          <div className="relative flex-grow max-w-md">
-            <input
-              type="text"
-              placeholder="Szukaj projektów..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-            />
-            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          </div>
-          
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as ProjectStatus | 'all')}
-            className="px-4 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-          >
-            <option value="all">Wszystkie statusy</option>
-            <option value="in-progress">W trakcie</option>
-            <option value="planning">Planowanie</option>
-            <option value="not-started">Nie rozpoczęte</option>
-            <option value="on-hold">Wstrzymane</option>
-            <option value="completed">Zakończone</option>
-          </select>
-          
-          <select
-            value={filterDepartment}
-            onChange={(e) => setFilterDepartment(e.target.value)}
-            className="px-4 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-          >
-            <option value="">Wszystkie działy</option>
-            {departments.map(dept => (
-              <option key={dept.id} value={dept.id}>
-                {dept.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        {/* Statystyki projektów */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-full">
-                <Tag className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Wszystkie projekty</div>
-                <div className="text-2xl font-semibold">{projects.length}</div>
+        {/* Filtry */}
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border dark:border-gray-700 mb-6">
+          <div className="flex flex-wrap gap-4 items-center">
+            {/* Wyszukiwanie */}
+            <div className="flex-grow min-w-[200px]">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Szukaj projektów..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full p-2 pl-10 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-2.5"
+                  >
+                    <X className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" />
+                  </button>
+                )}
               </div>
             </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900 rounded-full">
-                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">W trakcie</div>
-                <div className="text-2xl font-semibold">
-                  {projects.filter(p => p.status === 'in-progress').length}
-                </div>
-              </div>
+            
+            {/* Filtr statusu */}
+            <div className="min-w-[200px]">
+              <label htmlFor="status" className="block text-sm font-medium mb-1">
+                <Filter className="h-4 w-4 inline mr-1" /> Status
+              </label>
+              <select
+                id="status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'all')}
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              >
+                <option value="all">Wszystkie statusy</option>
+                <option value="not-started">Nie rozpoczęty</option>
+                <option value="planning">Planowanie</option>
+                <option value="in-progress">W trakcie</option>
+                <option value="on-hold">Wstrzymany</option>
+                <option value="completed">Zakończony</option>
+              </select>
             </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-red-100 dark:bg-red-900 rounded-full">
-                <PauseCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Wstrzymane</div>
-                <div className="text-2xl font-semibold">
-                  {projects.filter(p => p.status === 'on-hold').length}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-green-100 dark:bg-green-900 rounded-full">
-                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Zakończone</div>
-                <div className="text-2xl font-semibold">
-                  {projects.filter(p => p.status === 'completed').length}
-                </div>
-              </div>
+            
+            {/* Filtr działu */}
+            <div className="min-w-[200px]">
+              <label htmlFor="department" className="block text-sm font-medium mb-1">
+                <Building className="h-4 w-4 inline mr-1" /> Dział
+              </label>
+              <select
+                id="department"
+                value={departmentFilter}
+                onChange={handleDepartmentChange}
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              >
+                <option value="all">Wszystkie działy</option>
+                {departments.map(dept => (
+                  <option key={dept.id} value={dept.id}>{dept.name}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
         
-        {sortedProjects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedProjects.map(project => (
-              <ProjectCard 
-                key={project.id} 
-                project={project} 
-                showDetails={true} 
-              />
-            ))}
+        {/* Lista projektów */}
+        {filteredProjects.length === 0 ? (
+          <div className="text-center bg-gray-50 dark:bg-gray-800 p-8 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              Nie znaleziono projektów pasujących do wybranych kryteriów.
+            </p>
+            <Link
+              href="/projects/new"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-block"
+            >
+              Utwórz nowy projekt
+            </Link>
           </div>
         ) : (
-          <div className="text-center p-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <AlertTriangle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-medium mb-2">Brak projektów</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {searchQuery || filterStatus !== 'all' || filterDepartment
-                ? 'Nie znaleziono projektów spełniających kryteria wyszukiwania.'
-                : 'Nie utworzono jeszcze żadnych projektów międzydziałowych.'}
-            </p>
-            {!showNewProjectForm && (
-              <button
-                onClick={() => setShowNewProjectForm(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 mx-auto"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProjects.map(project => (
+              <Link
+                key={project.id}
+                href={`/projects/${project.id}`}
+                className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
               >
-                Utwórz pierwszy projekt
-                <Plus size={16} />
-              </button>
-            )}
+                <div className="p-5 border-b dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(project.status)}`}>
+                      {getStatusLabel(project.status)}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {project.progress}% ukończone
+                    </span>
+                  </div>
+                  <h3 className="font-medium text-lg mb-2">{project.name}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-2 mb-3">
+                    {project.description || 'Brak opisu projektu.'}
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <div className="flex items-center text-gray-500 dark:text-gray-400">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {new Date(project.endDate).toLocaleDateString()}
+                    </div>
+                    <div className="flex items-center text-gray-500 dark:text-gray-400">
+                      <User className="h-3 w-3 mr-1" />
+                      {project.owner}
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 bg-gray-50 dark:bg-gray-900">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                    <div 
+                      className="bg-blue-600 h-1.5 rounded-full" 
+                      style={{ width: `${project.progress}%` }}
+                    />
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
