@@ -2,219 +2,234 @@ import React, { useState, useEffect } from 'react';
 import { 
   DndContext, 
   DragEndEvent, 
-  closestCorners, 
-  PointerSensor,
+  DragOverEvent, 
+  DragOverlay,
   useSensor,
   useSensors,
-  DragStartEvent,
-  DragOverEvent
+  PointerSensor,
+  KeyboardSensor
 } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
-import { Plus } from 'lucide-react';
-
+import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import KanbanColumn from './kanban-column';
 import KanbanCard from './kanban-card';
+import CardDialog from './card-dialog';
 import { useKanbanStore } from '@/store/use-kanban-store';
-import { ColumnType, CardType } from '@/lib/types';
+import { useDepartmentsStore } from '@/store/use-departments-store';
+import { useProjectsStore } from '@/store/use-projects-store';
+import { CardType } from '@/lib/types';
+import { createPortal } from 'react-dom';
+import { AlertCircle } from 'lucide-react';
+import { getProjectStatusFromColumn, extractColumnType } from '@/lib/status-mapping';
 
-type KanbanBoardProps = {
+interface KanbanBoardProps {
   boardId: string;
-  title: string;
-  initialColumns: ColumnType[];
-  departmentId?: string;
-  searchFilter?: string;
-  assigneeFilter?: string;
-  priorityFilter?: string;
-};
+  showProjectConnections?: boolean;
+}
 
-const KanbanBoard = ({ 
-  boardId, 
-  title, 
-  initialColumns, 
-  departmentId,
-  searchFilter,
-  assigneeFilter,
-  priorityFilter
-}: KanbanBoardProps) => {
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
+  boardId,
+  showProjectConnections = false
+}) => {
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [dialogColumnId, setDialogColumnId] = useState<string | null>(null);
+  const [editCardData, setEditCardData] = useState<CardType | null>(null);
+  
   const { 
-    moveCard, 
-    addCard: storeAddCard,
-    updateCard,
-    deleteCard,
-    getBoard
+    boards, 
+    getBoard, 
+    createCard, 
+    moveCardToColumn, 
+    syncCardOrder,
+    findCardById 
   } = useKanbanStore();
   
-  // Set up sensors for drag and drop with proper configuration
+  const { selectedDepartmentId } = useDepartmentsStore();
+  
+  const { syncProjectWithCard } = useProjectsStore();
+  
+  // Board data
+  const board = getBoard(boardId);
+  
+  // Configure DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Only start dragging after moving 8px - prevents accidental drags
+        distance: 8,
       },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
   
-  // Active dragging state tracking
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // Find the active card for the drag overlay
+  const activeCard = activeCardId 
+    ? findCardById(activeCardId)
+    : null;
   
-  // Get columns from the store if available
-  const board = getBoard(boardId);
-  const storeColumns = board?.columns || initialColumns;
+  // Handler for adding a new card
+  const handleAddCard = (columnId: string) => {
+    setDialogColumnId(columnId);
+    setEditCardData(null);
+    setShowDialog(true);
+  };
   
-  // Apply filters if provided
-  const [filteredColumns, setFilteredColumns] = useState<ColumnType[]>(storeColumns);
-  
-  // Filter columns when filters change
-  useEffect(() => {
-    if (!storeColumns) return;
-    
-    // If no filters are applied, show all columns with all cards
-    if (!searchFilter && !assigneeFilter && !priorityFilter) {
-      setFilteredColumns(storeColumns);
-      return;
+  // Handler for saving a card
+  const handleSaveCard = (cardData: Omit<CardType, 'id'>) => {
+    if (dialogColumnId) {
+      createCard(boardId, dialogColumnId, cardData);
     }
+    setShowDialog(false);
+  };
+  
+  // DnD event handlers
+  const handleDragStart = (event: any) => {
+    const { id, data } = event.active;
     
-    // Apply filters to each column
-    const filtered = storeColumns.map(column => {
-      const filteredCards = column.cards.filter(card => {
-        // Search filter
-        if (searchFilter && !card.title.toLowerCase().includes(searchFilter.toLowerCase()) &&
-            !card.description?.toLowerCase().includes(searchFilter.toLowerCase())) {
-          return false;
-        }
-        
-        // Assignee filter
-        if (assigneeFilter && card.assignee !== assigneeFilter) {
-          return false;
-        }
-        
-        // Priority filter
-        if (priorityFilter && card.priority !== priorityFilter) {
-          return false;
-        }
-        
-        return true;
-      });
-      
-      return {
-        ...column,
-        cards: filteredCards
-      };
-    });
-    
-    setFilteredColumns(filtered);
-  }, [storeColumns, searchFilter, assigneeFilter, priorityFilter]);
-
-  // Update filtered columns when store columns change
-  useEffect(() => {
-    setFilteredColumns(storeColumns);
-  }, [storeColumns]);
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    if (data.current?.type === 'card') {
+      setActiveCardId(id);
+    }
   };
   
   const handleDragOver = (event: DragOverEvent) => {
-    // Optional drag over handling can be implemented here if needed for visual feedback
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
-    setActiveId(null);
     
     if (!over) return;
     
-    const activeCardId = active.id as string;
-    const overColumnId = over.id as string;
+    const activeId = active.id;
+    const overId = over.id;
     
-    // Find the source column
-    const sourceColumn = storeColumns.find(column => 
-      column.cards.some(card => card.id === activeCardId)
-    );
+    // Skip if nothing has changed
+    if (activeId === overId) return;
     
-    if (!sourceColumn) return;
+    const activeData = active.data.current;
+    const overData = over.data.current;
     
-    // Find the destination column
-    const destColumn = storeColumns.find(column => column.id === overColumnId);
-    
-    if (!destColumn) return;
-    
-    // If the card is dropped in a different column
-    if (sourceColumn.id !== destColumn.id) {
-      moveCard(boardId, activeCardId, sourceColumn.id, destColumn.id);
+    // Only handle card over column
+    if (
+      activeData?.type === 'card' && 
+      overData?.type === 'column' && 
+      activeData?.boardId === overData?.boardId
+    ) {
+      // Move card to new column
+      moveCardToColumn(
+        activeData.boardId,
+        activeData.columnId,
+        activeId as string,
+        overData.columnId
+      );
+      
+      // Synchronize with projects if the card is connected to projects
+      if (showProjectConnections) {
+        syncProjectWithCard(activeId as string, overData.columnId);
+      }
     }
   };
-
-  const handleAddCard = (columnId: string, card: Omit<CardType, 'id'>) => {
-    storeAddCard(boardId, columnId, {
-      ...card,
-      departmentId: departmentId // Add department ID to the card
-    });
+  
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveCardId(null);
+    
+    const { active, over } = event;
+    
+    if (!over) return;
+    
+    const activeId = active.id;
+    const overId = over.id;
+    
+    const activeData = active.data.current;
+    const overData = over.data.current;
+    
+    // Handle card over card (reordering within same column)
+    if (
+      activeData?.type === 'card' && 
+      overData?.type === 'card' && 
+      activeData?.columnId === overData?.columnId
+    ) {
+      // Find the column
+      const column = board?.columns.find(col => col.id === activeData.columnId);
+      
+      if (column) {
+        // Get card indices
+        const oldIndex = column.cards.findIndex(card => card.id === activeId);
+        const newIndex = column.cards.findIndex(card => card.id === overId);
+        
+        if (oldIndex !== -1 && newIndex !== -1) {
+          // Create new order of cards
+          const newOrder = arrayMove(column.cards, oldIndex, newIndex);
+          
+          // Update the store
+          syncCardOrder(
+            activeData.boardId, 
+            activeData.columnId, 
+            newOrder.map(card => card.id)
+          );
+        }
+      }
+    }
   };
   
-  const handleUpdateCard = (columnId: string, cardId: string, updates: Partial<CardType>) => {
-    updateCard(boardId, columnId, cardId, updates);
-  };
-  
-  const handleDeleteCard = (columnId: string, cardId: string) => {
-    deleteCard(boardId, columnId, cardId);
-  };
-  
-  const handleAddColumn = () => {
-    // This would be implemented in a real application
-    alert('Adding new columns is not available in the demo');
-  };
+  // If board not found
+  if (!board) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 p-4 text-center">
+        <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Tablica nie znaleziona</h3>
+        <p className="text-gray-600 dark:text-gray-300 max-w-md">
+          Nie znaleziono tablicy o ID: {boardId}. Wybierz inną tablicę lub utwórz nową.
+        </p>
+      </div>
+    );
+  }
   
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-6">
-        {title && <h1 className="text-2xl font-bold">{title}</h1>}
-        
-        <button 
-          onClick={handleAddColumn}
-          className="flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md text-sm"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Add Column
-        </button>
-      </div>
-      
-      <DndContext 
+    <>
+      <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd} 
-        collisionDetection={closestCorners}
+        onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredColumns.map(column => (
-            <KanbanColumn 
-              key={column.id} 
-              id={column.id} 
-              title={column.title}
-              onAddCard={(card) => handleAddCard(column.id, card)}
-            >
-              {column.cards.map(card => (
-                <KanbanCard 
-                  key={card.id} 
-                  id={card.id}
-                  title={card.title} 
-                  description={card.description}
-                  assignee={card.assignee}
-                  dueDate={card.dueDate}
-                  priority={card.priority}
-                  boardId={boardId}
-                  columnId={column.id}
-                  onUpdate={(updates) => handleUpdateCard(column.id, card.id, updates)}
-                  onDelete={() => handleDeleteCard(column.id, card.id)}
-                  isDragging={activeId === card.id}
-                />
-              ))}
-            </KanbanColumn>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
+          {board.columns.map(column => (
+            <KanbanColumn
+              key={column.id}
+              boardId={boardId}
+              column={column}
+              onAddCard={handleAddCard}
+              showProjectConnections={showProjectConnections}
+            />
           ))}
         </div>
+        
+        {/* Drag overlay */}
+        {typeof window !== 'undefined' && activeCardId && activeCard && createPortal(
+          <DragOverlay>
+            <KanbanCard
+              id={activeCardId}
+              title={activeCard.title}
+              description={activeCard.description}
+              assignee={activeCard.assignee}
+              dueDate={activeCard.dueDate}
+              priority={activeCard.priority}
+              isDragging={true}
+            />
+          </DragOverlay>,
+          document.body
+        )}
       </DndContext>
-    </div>
+      
+      {/* Card dialog */}
+      <CardDialog
+        isOpen={showDialog}
+        onClose={() => setShowDialog(false)}
+        onSave={handleSaveCard}
+        card={editCardData}
+        title={editCardData ? 'Edytuj kartę' : 'Dodaj nową kartę'}
+        currentUser="Admin"
+        departmentId={selectedDepartmentId || 'default'}
+      />
+    </>
   );
 };
 
