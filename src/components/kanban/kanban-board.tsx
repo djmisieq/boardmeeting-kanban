@@ -194,6 +194,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           {board.columns.map(column => (
             <KanbanColumn
               key={column.id}
+              id={column.id}
+              title={column.title}
               boardId={boardId}
               column={column}
               onAddCard={handleAddCard}
