@@ -5,6 +5,7 @@ import Navbar from '@/components/layout/navbar';
 import { useDepartmentsStore } from '@/store/use-departments-store';
 import { useKanbanStore } from '@/store/use-kanban-store';
 import { getDepartmentBoardsStatistics, BoardStatistics } from '@/lib/board-utils';
+import ExportReportDialog from '@/components/reports/export-report-dialog';
 import {
   BarChart,
   Bar,
@@ -22,7 +23,7 @@ import {
   ComposedChart,
   Line,
 } from 'recharts';
-import { Download, Filter, Share2 } from 'lucide-react';
+import { Download, Filter, Share2, Calendar, ArrowDownTray } from 'lucide-react';
 import Link from 'next/link';
 
 type DepartmentStats = {
@@ -40,6 +41,8 @@ export default function ReportsPage() {
   const [departmentsStats, setDepartmentsStats] = useState<DepartmentStats[]>([]);
   const [reportType, setReportType] = useState<'tasks' | 'problems' | 'ideas'>('tasks');
   const [comparisonMetric, setComparisonMetric] = useState<'completion' | 'overdue' | 'total'>('completion');
+  const [timePeriod, setTimePeriod] = useState<'30days' | 'quarter' | 'ytd' | 'custom'>('30days');
+  const [showExportDialog, setShowExportDialog] = useState(false);
   
   useEffect(() => {
     // Collect statistics for all departments
@@ -131,6 +134,19 @@ export default function ReportsPage() {
     }
   };
   
+  const getTimePeriodLabel = () => {
+    switch (timePeriod) {
+      case '30days':
+        return 'Last 30 Days';
+      case 'quarter':
+        return 'Last Quarter';
+      case 'ytd':
+        return 'Year to Date';
+      case 'custom':
+        return 'Custom Range';
+    }
+  };
+  
   return (
     <div>
       <Navbar />
@@ -140,8 +156,11 @@ export default function ReportsPage() {
           <h1 className="text-3xl font-bold">Department Reports</h1>
           
           <div className="flex space-x-4">
-            <button className="flex items-center px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-              <Download className="h-4 w-4 mr-2" />
+            <button 
+              className="flex items-center px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+              onClick={() => setShowExportDialog(true)}
+            >
+              <ArrowDownTray className="h-4 w-4 mr-2" />
               Export Report
             </button>
             
@@ -184,13 +203,45 @@ export default function ReportsPage() {
             
             <div>
               <label className="block text-sm font-medium mb-1">Time Period</label>
-              <select className="w-full px-3 py-2 border rounded-lg">
-                <option>Last 30 Days</option>
-                <option>Last Quarter</option>
-                <option>Year to Date</option>
-                <option>Custom Range</option>
+              <select 
+                className="w-full px-3 py-2 border rounded-lg"
+                value={timePeriod}
+                onChange={(e) => setTimePeriod(e.target.value as any)}
+              >
+                <option value="30days">Last 30 Days</option>
+                <option value="quarter">Last Quarter</option>
+                <option value="ytd">Year to Date</option>
+                <option value="custom">Custom Range</option>
               </select>
             </div>
+            
+            {timePeriod === 'custom' && (
+              <div className="flex gap-2 items-end">
+                <div>
+                  <label className="block text-sm font-medium mb-1">From</label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border rounded-lg pr-8"
+                    />
+                    <Calendar className="absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">To</label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border rounded-lg pr-8"
+                    />
+                    <Calendar className="absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+                  </div>
+                </div>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
         </div>
         
@@ -227,7 +278,12 @@ export default function ReportsPage() {
         
         {/* Comparison Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-medium mb-6">Department Comparison: {getReportTypeLabel()} {getMetricLabel()}</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-medium">Department Comparison: {getReportTypeLabel()} {getMetricLabel()}</h2>
+            <div className="text-sm text-gray-500">
+              {getTimePeriodLabel()}
+            </div>
+          </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
@@ -360,6 +416,15 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
+      
+      {/* Export Report Dialog */}
+      {showExportDialog && (
+        <ExportReportDialog
+          departmentsStats={departmentsStats}
+          reportType={reportType}
+          onClose={() => setShowExportDialog(false)}
+        />
+      )}
     </div>
   );
 }
