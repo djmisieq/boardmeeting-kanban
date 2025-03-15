@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
-import { X, Calendar, User, Check, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, User, Check, AlertCircle, RefreshCw, Info } from 'lucide-react';
 import { CardType, Project, ProjectTask, ProjectMilestone } from '@/lib/types';
 import { useDepartmentsStore } from '@/store/use-departments-store';
 import { useProjectsStore } from '@/store/use-projects-store';
+import { 
+  findBestTemplateForCard, 
+  getSuggestedMilestonesForCard, 
+  getSuggestedEndDate,
+  getSuggestedTags
+} from '@/lib/project-suggestions';
 
 interface CardToProjectDialogProps {
   isOpen: boolean;
@@ -45,6 +51,27 @@ const CardToProjectDialog = ({
   const [newMilestoneDescription, setNewMilestoneDescription] = useState('');
   const [newMilestoneDate, setNewMilestoneDate] = useState('');
   const [error, setError] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  
+  // Efekt inicjalizacji sugestii
+  useEffect(() => {
+    if (isOpen) {
+      // Ustaw sugerowaną datę zakończenia
+      const suggestedEndDate = getSuggestedEndDate(startDate, category);
+      setEndDate(suggestedEndDate);
+      
+      // Ustaw sugerowane tagi
+      const suggestedTags = getSuggestedTags(card, category);
+      setTags(suggestedTags);
+      
+      // Znajdź najlepszy szablon
+      const template = findBestTemplateForCard(card, category);
+      if (template) {
+        setSelectedTemplate(template.name);
+      }
+    }
+  }, [isOpen, card, category, startDate]);
   
   // Pomocnicza funkcja walidacji
   const validateStep = (currentStep: number) => {
@@ -136,6 +163,34 @@ const CardToProjectDialog = ({
     }
   };
   
+  // Funkcja generująca sugerowane kamienie milowe
+  const generateSuggestedMilestones = () => {
+    const { milestones: suggestedMilestones } = getSuggestedMilestonesForCard(card, category, startDate);
+    
+    // Konwersja do formatu MilestoneFormData
+    const milestoneData: MilestoneFormData[] = suggestedMilestones.map(milestone => {
+      const milestoneDate = new Date(startDate);
+      milestoneDate.setDate(milestoneDate.getDate() + milestone.relativeDays);
+      
+      return {
+        name: milestone.name,
+        description: milestone.description,
+        date: milestoneDate.toISOString().split('T')[0]
+      };
+    });
+    
+    setMilestones(milestoneData);
+  };
+  
+  // Dodanie/usunięcie tagu
+  const toggleTag = (tag: string) => {
+    if (tags.includes(tag)) {
+      setTags(tags.filter(t => t !== tag));
+    } else {
+      setTags([...tags, tag]);
+    }
+  };
+  
   // Utworzenie projektu
   const createProjectFromCard = () => {
     try {
@@ -149,8 +204,7 @@ const CardToProjectDialog = ({
         owner: projectOwner,
         departments: involvedDepartments,
         tasks: [],
-        tags: category === 'task' ? ['zadanie'] : 
-              category === 'problem' ? ['problem'] : ['usprawnienie'],
+        tags,
         milestones: []
       });
       
@@ -184,6 +238,28 @@ const CardToProjectDialog = ({
   };
   
   if (!isOpen) return null;
+  
+  // Renderowanie informacji o wykrytym szablonie
+  const renderTemplateInfo = () => {
+    if (!selectedTemplate) return null;
+    
+    return (
+      <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 mb-4 rounded">
+        <div className="flex">
+          <Info className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
+          <div>
+            <p className="text-blue-700 dark:text-blue-400 font-medium">
+              Wykryto szablon: {selectedTemplate}
+            </p>
+            <p className="text-blue-600 dark:text-blue-300 text-sm mt-1">
+              Na podstawie analizy karty, sugerujemy szablon projektu typu "{selectedTemplate}". 
+              Dane projektu zostały wstępnie wypełnione na podstawie tego szablonu.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -233,6 +309,9 @@ const CardToProjectDialog = ({
               </div>
             </div>
           )}
+          
+          {/* Informacja o wykrytym szablonie */}
+          {step === 1 && renderTemplateInfo()}
           
           {/* Krok 1: Podstawowe informacje */}
           {step === 1 && (
@@ -297,6 +376,25 @@ const CardToProjectDialog = ({
                   </div>
                 </div>
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Tagi projektu</label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {['wdrożenie', 'optymalizacja', 'naprawa', 'analiza', 'badanie', category].map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        tags.includes(tag)
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           
@@ -358,7 +456,17 @@ const CardToProjectDialog = ({
           {step === 3 && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-medium mb-2">Kamienie milowe projektu</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Kamienie milowe projektu</h3>
+                  <button
+                    onClick={generateSuggestedMilestones}
+                    className="flex items-center px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    title="Generuj sugerowane kamienie milowe na podstawie typu projektu i karty"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Sugeruj kamienie milowe
+                  </button>
+                </div>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
                   Dodaj kluczowe etapy projektu. Kamienie milowe pomogą monitorować postęp.
                 </p>
@@ -496,11 +604,16 @@ const CardToProjectDialog = ({
                 </div>
                 
                 <div className="py-2">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Typ</div>
-                  <div>
-                    <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded">
-                      {category === 'task' ? 'Zadanie' : category === 'problem' ? 'Problem' : 'Usprawnienie'}
-                    </span>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Tagi</div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {tags.map(tag => (
+                      <span
+                        key={tag}
+                        className="px-2 py-1 text-xs bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded"
+                      >
+                        {tag}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 
