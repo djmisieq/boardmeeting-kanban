@@ -3,7 +3,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { useDepartmentsStore } from '@/store/use-departments-store';
-import { useApp } from '@/providers/app-provider';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { Loading, CardSkeleton } from '@/components/ui/loading';
 import { 
@@ -19,10 +18,11 @@ import {
 
 export default function Home() {
   const { departments } = useDepartmentsStore();
-  const { error, isLoading } = useApp();
   
   // Stan lokalny dla ładowania departamentów
   const [departmentsLoaded, setDepartmentsLoaded] = React.useState(departments.length > 0);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   
   // Efekt do symulacji ładowania danych (jeśli nie są jeszcze załadowane)
   React.useEffect(() => {
