@@ -6,6 +6,7 @@ import {
   ProjectStatus, 
   ProjectMilestone
 } from '@/lib/types';
+import { useKanbanStore } from './use-kanban-store';
 
 interface ProjectsState {
   projects: Project[];
@@ -33,6 +34,8 @@ interface ProjectsState {
   // Pomocnicze
   calculateProjectProgress: (projectId: string) => void;
   getProjectsByDepartment: (departmentId: string) => Project[];
+  getProjectsForCard: (cardId: string) => Project[];
+  syncProjectWithCard: (cardId: string, newStatus: string) => void;
 }
 
 export const useProjectsStore = create<ProjectsState>((set, get) => ({
@@ -311,23 +314,24 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       return;
     }
     
-    // Obliczamy postęp na podstawie statusów kart w Kanban
+    // Pobieranie aktualnych statusów kart z useKanbanStore
+    const kanbanStore = useKanbanStore.getState();
     const totalTasks = project.tasks.length;
     let completedTasks = 0;
     
-    // Tutaj będzie potrzebna integracja z useKanbanStore 
-    // aby sprawdzić aktualny status każdej karty
-    // To jest uproszczona wersja:
     for (const task of project.tasks) {
-      // W rzeczywistej implementacji sprawdzamy status karty task.cardId
-      // na jej tablicy Kanban task.boardId
+      // Pobierz kartę z kanbanStore
+      const card = kanbanStore.findCardById(task.cardId);
       
-      // Przykładowo, jeśli karta jest w ostatniej kolumnie (np. "Done")
-      // uznajemy ją za zakończoną
-      // TODO: Zaimplementować rzeczywiste sprawdzanie statusu
-      
-      // Tymczasowo, założmy że 30% zadań jest zakończonych
-      if (Math.random() > 0.7) completedTasks++;
+      if (card) {
+        // Sprawdź czy karta jest w kolumnie oznaczającej zakończenie
+        const column = kanbanStore.getColumnById(card.columnId);
+        if (column && (column.name.toLowerCase().includes('done') || 
+            column.name.toLowerCase().includes('completed') || 
+            column.name.toLowerCase().includes('zakończone'))) {
+          completedTasks++;
+        }
+      }
     }
     
     const progress = Math.round((completedTasks / totalTasks) * 100);
@@ -338,5 +342,21 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     return get().projects.filter(project => 
       project.departments.includes(departmentId)
     );
+  },
+  
+  // Nowa funkcja - pobieranie projektów dla karty
+  getProjectsForCard: (cardId) => {
+    return get().projects.filter(project =>
+      project.tasks.some(task => task.cardId === cardId)
+    );
+  },
+  
+  // Nowa funkcja - synchronizacja projektu z kartą po zmianie statusu karty
+  syncProjectWithCard: (cardId, newStatus) => {
+    const projectsToUpdate = get().getProjectsForCard(cardId);
+    
+    projectsToUpdate.forEach(project => {
+      get().calculateProjectProgress(project.id);
+    });
   }
 }));
