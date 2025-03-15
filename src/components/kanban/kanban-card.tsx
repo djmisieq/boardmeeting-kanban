@@ -16,6 +16,7 @@ import {
 import Link from 'next/link';
 import { CardType } from '@/lib/types';
 import CardToProjectDialog from './card-to-project-dialog';
+import { MeetingOutcomeBadge } from './meeting-outcome-badge';
 
 interface KanbanCardProps {
   id: string;
@@ -28,6 +29,7 @@ interface KanbanCardProps {
   columnId?: string;
   isDragging?: boolean;
   categoryIcon?: React.ReactNode;
+  meetingId?: string;
   onUpdate?: (updates: Partial<CardType>) => void;
   onDelete?: () => void;
 }
@@ -43,6 +45,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
   columnId,
   isDragging = false,
   categoryIcon,
+  meetingId,
   onUpdate,
   onDelete
 }) => {
@@ -123,6 +126,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
         ref={setNodeRef}
         style={style}
         {...attributes}
+        {...listeners}
         className={`bg-white dark:bg-gray-800 rounded-md shadow-sm ${getBorderColor()} p-3 select-none
           ${isDragging ? 'opacity-50' : ''}
           hover:shadow-md transition-shadow duration-200`}
@@ -217,9 +221,10 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
           </div>
         </div>
         
-        {/* Etykieta z priorytetem */}
-        {priority && (
-          <div className="mt-2">
+        {/* Badges Section */}
+        <div className="mt-2 flex flex-wrap gap-1">
+          {/* Priority badge */}
+          {priority && (
             <span className={`text-xs px-2 py-1 rounded-full ${
               priority === 'high' 
                 ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' 
@@ -229,8 +234,11 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
             }`}>
               {priority === 'high' ? 'Wysoki' : priority === 'medium' ? 'Średni' : 'Niski'} priorytet
             </span>
-          </div>
-        )}
+          )}
+          
+          {/* Meeting outcome badge */}
+          {meetingId && <MeetingOutcomeBadge meetingId={meetingId} />}
+        </div>
         
         {/* Stopka karty - osoba przypisana i data */}
         <div className="mt-4 pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
