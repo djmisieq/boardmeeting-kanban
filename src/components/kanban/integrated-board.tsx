@@ -43,7 +43,7 @@ const IntegratedBoard = () => {
     deleteCard
   } = useKanbanStore();
   
-  const { departments, selectedDepartmentId, setSelectedDepartment } = useDepartmentsStore();
+  const { departments, selectedDepartmentId, selectDepartment } = useDepartmentsStore();
   
   // Pobieranie tablic dla wszystkich kategorii
   const tasksBoard = getBoard(`${selectedDepartmentId || 'default'}-tasks`);
@@ -193,7 +193,7 @@ const IntegratedBoard = () => {
   // Obsługa zmiany wybranego działu
   const handleDepartmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const deptId = e.target.value;
-    setSelectedDepartment(deptId === 'all' ? null : deptId);
+    selectDepartment(deptId === 'all' ? null : deptId);
     setFilters({ ...filters, department: deptId });
   };
   
