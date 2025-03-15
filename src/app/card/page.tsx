@@ -6,10 +6,10 @@ import { useKanbanStore } from '@/store/use-kanban-store';
 import { useDepartmentsStore } from '@/store/use-departments-store';
 import NavigationControls from '@/components/kanban/navigation-controls';
 import CardListModal from '@/components/kanban/card-list-modal';
+import CardSearchModal from '@/components/kanban/card-search-modal';
 import Navbar from '@/components/layout/navbar';
 import { CardType } from '@/lib/types';
 import { AlertCircle, CheckCircle, Lightbulb, Clock, User, AlertTriangle, Edit, ChevronLeft } from 'lucide-react';
-import { extractColumnType } from '@/lib/status-mapping';
 import Link from 'next/link';
 
 export default function CardPage() {
@@ -209,7 +209,16 @@ export default function CardPage() {
         onCardSelect={navigateToCard}
       />
       
-      {/* TODO: Implementacja wyszukiwania i dialogu edycji */}
+      {/* Modal wyszukiwania */}
+      <CardSearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        cards={allCardsInBoard.map(cardItem => ({
+          ...cardItem,
+          category: getCardCategory()
+        }))}
+        onCardSelect={navigateToCard}
+      />
     </div>
   );
 }
