@@ -8,26 +8,32 @@ import {
   Lightbulb, 
   Briefcase,
   ArrowUpRight,
-  AlertTriangle
+  AlertTriangle,
+  CalendarDays
 } from 'lucide-react';
 import { useKanbanStore } from '@/store/use-kanban-store';
 import { useProjectsStore } from '@/store/use-projects-store';
+import { useMeetingsStore } from '@/store/use-meetings-store';
 import KanbanBoard from '@/components/kanban/kanban-board';
 import ProjectCard from '@/components/projects/project-card';
+import { MeetingStatsWidget } from './meeting-stats-widget';
 import { Project } from '@/lib/types';
 import Link from 'next/link';
 
 interface IntegratedBoardProps {
   viewMode: 'combined' | 'kanban' | 'projects';
   departmentId: string;
+  showMeetingStats?: boolean;
 }
 
 const IntegratedBoard: React.FC<IntegratedBoardProps> = ({ 
   viewMode,
-  departmentId 
+  departmentId,
+  showMeetingStats = true
 }) => {
   const { boards } = useKanbanStore();
   const { projects, getProjectsByDepartment } = useProjectsStore();
+  const { meetings } = useMeetingsStore();
   
   const [activeTab, setActiveTab] = useState('tasks');
   const [departmentProjects, setDepartmentProjects] = useState<Project[]>([]);
@@ -140,6 +146,35 @@ const IntegratedBoard: React.FC<IntegratedBoardProps> = ({
         <TabsContent value="projects" className="mt-0">
           {renderProjectCards()}
         </TabsContent>
+        
+        <TabsContent value="meetings" className="mt-0">
+          <div className="p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Spotkania działu</h3>
+              <Link
+                href="/meetings"
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center text-sm"
+              >
+                Wszystkie spotkania
+                <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+              </Link>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-8 text-center">
+              <CalendarDays className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+              <h3 className="text-lg font-medium mb-2">Widok spotkań</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-4 max-w-md mx-auto">
+                Pełna funkcjonalność zarządzania spotkaniami jest dostępna w osobnym widoku spotkań.
+              </p>
+              <Link 
+                href="/meetings"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Przejdź do spotkań
+              </Link>
+            </div>
+          </div>
+        </TabsContent>
       </>
     );
   };
@@ -149,22 +184,31 @@ const IntegratedBoard: React.FC<IntegratedBoardProps> = ({
     return (
       <div className="space-y-6">
         {/* Projects section */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-            <h2 className="text-xl font-semibold flex items-center">
-              <Briefcase className="h-5 w-5 mr-2 text-blue-600 dark:text-blue-400" />
-              Projekty działu
-            </h2>
-            <Link
-              href="/projects"
-              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center text-sm"
-            >
-              Wszystkie projekty
-              <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-            </Link>
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden lg:flex-grow">
+            <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+              <h2 className="text-xl font-semibold flex items-center">
+                <Briefcase className="h-5 w-5 mr-2 text-blue-600 dark:text-blue-400" />
+                Projekty działu
+              </h2>
+              <Link
+                href="/projects"
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center text-sm"
+              >
+                Wszystkie projekty
+                <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+              </Link>
+            </div>
+            
+            {renderProjectCards()}
           </div>
           
-          {renderProjectCards()}
+          {/* Meeting stats widget - only shown in combined view */}
+          {showMeetingStats && (
+            <div className="lg:w-80">
+              <MeetingStatsWidget className="h-full" />
+            </div>
+          )}
         </div>
         
         {/* Kanban boards section */}
@@ -192,6 +236,13 @@ const IntegratedBoard: React.FC<IntegratedBoardProps> = ({
                 >
                   <Lightbulb className="h-4 w-4 mr-2 text-yellow-600 dark:text-yellow-400" />
                   Usprawnienia
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="meetings" 
+                  className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-400 data-[state=active]:shadow-none rounded-none px-4 py-3"
+                >
+                  <CalendarDays className="h-4 w-4 mr-2 text-blue-400 dark:text-blue-300" />
+                  Spotkania
                 </TabsTrigger>
                 <TabsTrigger 
                   value="projects" 
@@ -237,6 +288,13 @@ const IntegratedBoard: React.FC<IntegratedBoardProps> = ({
               >
                 <Lightbulb className="h-4 w-4 mr-2 text-yellow-600 dark:text-yellow-400" />
                 Usprawnienia
+              </TabsTrigger>
+              <TabsTrigger 
+                value="meetings" 
+                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-400 data-[state=active]:shadow-none rounded-none px-4 py-3"
+              >
+                <CalendarDays className="h-4 w-4 mr-2 text-blue-400 dark:text-blue-300" />
+                Spotkania
               </TabsTrigger>
             </TabsList>
           </div>
